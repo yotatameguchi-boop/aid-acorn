@@ -10,6 +10,8 @@ export type Grant = {
   target: string;
   description: string;
   url?: string;
+  region?: string;
+  custom?: boolean;
 };
 
 export const CATEGORIES = [
@@ -21,6 +23,30 @@ export const CATEGORIES = [
   "文化・芸術",
   "国際協力",
 ] as const;
+
+export const REGIONS = [
+  "全国",
+  "北海道",
+  "東北",
+  "関東",
+  "東京",
+  "中部",
+  "東海",
+  "関西",
+  "中国",
+  "四国",
+  "九州",
+  "沖縄",
+] as const;
+
+export const getGrantRegion = (g: Grant): string => {
+  if (g.region) return g.region;
+  const src = `${g.organization} ${g.target}`;
+  for (const r of REGIONS) {
+    if (r !== "全国" && src.includes(r)) return r;
+  }
+  return "全国";
+};
 
 export const GRANTS: Grant[] = [
   {
