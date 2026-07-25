@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const MAX_AMOUNT = 70_000_000;
+const MAX_AMOUNT = 100_000_000;
 
 function Home() {
   const [query, setQuery] = useState("");
