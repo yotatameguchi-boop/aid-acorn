@@ -755,3 +755,22 @@ export const GRANTS: Grant[] = [
     region: "全国",
   },
 ];
+
+export const formatYen = (n: number): string => {
+  if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(n % 100_000_000 === 0 ? 0 : 1)}億円`;
+  if (n >= 10_000) return `${(n / 10_000).toLocaleString("ja-JP")}万円`;
+  return `${n.toLocaleString("ja-JP")}円`;
+};
+
+export const formatDate = (iso: string): string => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
+};
+
+export const daysUntil = (iso: string): number => {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = d.getTime() - now.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
