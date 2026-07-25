@@ -35,6 +35,27 @@ function Home() {
   const [month, setMonth] = useState<string>("すべて");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState("search");
+  // localStorageから復元（初回マウント時）
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FAV_STORAGE_KEY);
+      if (raw) {
+        const ids = JSON.parse(raw) as string[];
+        if (Array.isArray(ids)) setFavorites(new Set(ids));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 変更のたびに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(Array.from(favorites)));
+    } catch {
+      // ignore (quota等)
+    }
+  }, [favorites]);
 
   const toggleFav = (id: string) =>
     setFavorites((prev) => {
