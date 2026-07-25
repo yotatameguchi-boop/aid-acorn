@@ -485,7 +485,13 @@ function GrantCard({ grant, isFav, onToggle, onEdit, onDelete }: { grant: Grant;
             <Heart className={cn("h-4 w-4", isFav && "fill-current")} />
           </button>
         </div>
-        <h3 className="mt-2 text-base font-bold leading-snug">{grant.title}</h3>
+        {grant.url ? (
+          <a href={grant.url} target="_blank" rel="noreferrer" className="mt-2 block group">
+            <h3 className="text-base font-bold leading-snug group-hover:text-primary group-hover:underline underline-offset-2">{grant.title}</h3>
+          </a>
+        ) : (
+          <h3 className="mt-2 text-base font-bold leading-snug">{grant.title}</h3>
+        )}
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Building2 className="h-3 w-3" /> {grant.organization}
         </p>
