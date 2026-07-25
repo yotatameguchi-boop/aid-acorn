@@ -532,14 +532,10 @@ function GrantCard({ grant, isFav, onToggle, onEdit, onDelete }: { grant: Grant;
                 <Trash2 className="h-3 w-3" />
               </Button>
             )}
-            {grant.url ? (
-              <a href={grant.url} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-primary hover:bg-primary/10">
-                詳細 <ExternalLink className="h-3 w-3" />
+            {grant.url && (
+              <a href={grant.url} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center gap-1 rounded-md bg-primary/10 px-2 text-xs font-medium text-primary hover:bg-primary/20">
+                公式サイト <ExternalLink className="h-3 w-3" />
               </a>
-            ) : (
-              <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10 hover:text-primary">
-                詳細 <ExternalLink className="h-3 w-3" />
-              </Button>
             )}
           </div>
         </div>
