@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const FAV_STORAGE_KEY = "tsunagu-josei:favorites:v1";
 import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +35,27 @@ function Home() {
   const [month, setMonth] = useState<string>("すべて");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState("search");
+  // localStorageから復元（初回マウント時）
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FAV_STORAGE_KEY);
+      if (raw) {
+        const ids = JSON.parse(raw) as string[];
+        if (Array.isArray(ids)) setFavorites(new Set(ids));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 変更のたびに保存
+  useEffect(() => {
+    try {
+      localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(Array.from(favorites)));
+    } catch {
+      // ignore (quota等)
+    }
+  }, [favorites]);
 
   const toggleFav = (id: string) =>
     setFavorites((prev) => {
