@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const MAX_AMOUNT = 5_000_000;
+const MAX_AMOUNT = 70_000_000;
 
 function Home() {
   const [query, setQuery] = useState("");
@@ -243,7 +243,7 @@ function FilterPanel({
             value={amountRange}
             min={0}
             max={MAX_AMOUNT}
-            step={100_000}
+            step={1_000_000}
             onValueChange={(v) => setAmountRange([v[0], v[1]] as [number, number])}
             className="mt-3"
           />
