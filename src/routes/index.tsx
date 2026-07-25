@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+const FAV_STORAGE_KEY = "tsunagu-josei:favorites:v1";
 import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
