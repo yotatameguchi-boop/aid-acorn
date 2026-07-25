@@ -2,23 +2,26 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 
 const FAV_STORAGE_KEY = "tsunagu-josei:favorites:v1";
-import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles } from "lucide-react";
+const CUSTOM_STORAGE_KEY = "tsunagu-josei:custom:v1";
+import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles, MapPin, Plus, Trash2, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { GRANTS, CATEGORIES, formatYen, formatDate, daysUntil, type Grant } from "@/lib/grants-data";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { GRANTS, CATEGORIES, REGIONS, getGrantRegion, formatYen, formatDate, daysUntil, type Grant } from "@/lib/grants-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "つなぐ助成 — NPO向け 補助金・助成金 検索管理" },
-      { name: "description", content: "募集時期・金額でNPO向け助成金を検索し、気になる案件をお気に入りで一元管理できます。" },
+      { name: "description", content: "地域・募集時期・金額でNPO向け助成金を検索し、自分の持つ助成金情報も登録・管理できます。" },
       { property: "og:title", content: "つなぐ助成 — NPO向け 補助金・助成金 検索管理" },
       { property: "og:description", content: "NPOのための助成金検索・管理ツール。" },
     ],
@@ -28,14 +31,35 @@ export const Route = createFileRoute("/")({
 
 const MAX_AMOUNT = 100_000_000;
 
+type CustomGrantInput = Omit<Grant, "id" | "custom">;
+
+const emptyDraft: CustomGrantInput = {
+  title: "",
+  organization: "",
+  category: "地域振興",
+  amountMin: 0,
+  amountMax: 1_000_000,
+  applicationStart: new Date().toISOString().slice(0, 10),
+  applicationEnd: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+  target: "NPO法人",
+  description: "",
+  region: "全国",
+  url: "",
+};
+
 function Home() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("すべて");
+  const [region, setRegion] = useState<string>("すべて");
   const [amountRange, setAmountRange] = useState<[number, number]>([0, MAX_AMOUNT]);
   const [month, setMonth] = useState<string>("すべて");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [customs, setCustoms] = useState<Grant[]>([]);
   const [tab, setTab] = useState("search");
-  // localStorageから復元（初回マウント時）
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<CustomGrantInput>(emptyDraft);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(FAV_STORAGE_KEY);
@@ -43,19 +67,21 @@ function Home() {
         const ids = JSON.parse(raw) as string[];
         if (Array.isArray(ids)) setFavorites(new Set(ids));
       }
-    } catch {
-      // ignore
-    }
+      const rawC = localStorage.getItem(CUSTOM_STORAGE_KEY);
+      if (rawC) {
+        const list = JSON.parse(rawC) as Grant[];
+        if (Array.isArray(list)) setCustoms(list.map((g) => ({ ...g, custom: true })));
+      }
+    } catch { /* ignore */ }
   }, []);
 
-  // 変更のたびに保存
   useEffect(() => {
-    try {
-      localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(Array.from(favorites)));
-    } catch {
-      // ignore (quota等)
-    }
+    try { localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(Array.from(favorites))); } catch { /* ignore */ }
   }, [favorites]);
+
+  useEffect(() => {
+    try { localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(customs)); } catch { /* ignore */ }
+  }, [customs]);
 
   const toggleFav = (id: string) =>
     setFavorites((prev) => {
@@ -64,11 +90,17 @@ function Home() {
       return next;
     });
 
+  const allGrants = useMemo(() => [...customs, ...GRANTS], [customs]);
+
   const filtered = useMemo(() => {
-    return GRANTS.filter((g) => {
+    return allGrants.filter((g) => {
       if (query && !(`${g.title} ${g.organization} ${g.description}`.toLowerCase().includes(query.toLowerCase())))
         return false;
       if (category !== "すべて" && g.category !== category) return false;
+      if (region !== "すべて") {
+        const gr = getGrantRegion(g);
+        if (gr !== region && gr !== "全国") return false;
+      }
       if (g.amountMax < amountRange[0] || g.amountMin > amountRange[1]) return false;
       if (month !== "すべて") {
         const m = parseInt(month, 10);
@@ -80,10 +112,36 @@ function Home() {
       }
       return true;
     }).sort((a, b) => new Date(a.applicationEnd).getTime() - new Date(b.applicationEnd).getTime());
-  }, [query, category, amountRange, month]);
+  }, [allGrants, query, category, region, amountRange, month]);
 
-  const favList = GRANTS.filter((g) => favorites.has(g.id));
+  const favList = allGrants.filter((g) => favorites.has(g.id));
   const totalFundingSecured = favList.reduce((s, g) => s + g.amountMax, 0);
+
+  const openNew = () => {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setDialogOpen(true);
+  };
+  const openEdit = (g: Grant) => {
+    setEditingId(g.id);
+    const { id: _id, custom: _c, ...rest } = g;
+    setDraft({ ...emptyDraft, ...rest });
+    setDialogOpen(true);
+  };
+  const saveDraft = () => {
+    if (!draft.title.trim() || !draft.organization.trim()) return;
+    if (editingId) {
+      setCustoms((prev) => prev.map((g) => (g.id === editingId ? { ...g, ...draft, id: editingId, custom: true } : g)));
+    } else {
+      const id = `my-${Date.now().toString(36)}`;
+      setCustoms((prev) => [{ ...draft, id, custom: true }, ...prev]);
+    }
+    setDialogOpen(false);
+  };
+  const deleteCustom = (id: string) => {
+    setCustoms((prev) => prev.filter((g) => g.id !== id));
+    setFavorites((prev) => { const n = new Set(prev); n.delete(id); return n; });
+  };
 
   return (
     <div className="min-h-screen">
@@ -100,6 +158,9 @@ function Home() {
             <TabsTrigger value="favorites" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Heart className="mr-2 h-4 w-4" /> お気に入り ({favorites.size})
             </TabsTrigger>
+            <TabsTrigger value="mine" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Sprout className="mr-2 h-4 w-4" /> 自分の登録 ({customs.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="search" className="mt-6">
@@ -107,9 +168,10 @@ function Home() {
               <FilterPanel
                 query={query} setQuery={setQuery}
                 category={category} setCategory={setCategory}
+                region={region} setRegion={setRegion}
                 amountRange={amountRange} setAmountRange={setAmountRange}
                 month={month} setMonth={setMonth}
-                onReset={() => { setQuery(""); setCategory("すべて"); setAmountRange([0, MAX_AMOUNT]); setMonth("すべて"); }}
+                onReset={() => { setQuery(""); setCategory("すべて"); setRegion("すべて"); setAmountRange([0, MAX_AMOUNT]); setMonth("すべて"); }}
               />
               <section>
                 <div className="mb-4 flex items-baseline justify-between">
@@ -123,7 +185,7 @@ function Home() {
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
                     {filtered.map((g) => (
-                      <GrantCard key={g.id} grant={g} isFav={favorites.has(g.id)} onToggle={() => toggleFav(g.id)} />
+                      <GrantCard key={g.id} grant={g} isFav={favorites.has(g.id)} onToggle={() => toggleFav(g.id)} onEdit={g.custom ? () => openEdit(g) : undefined} onDelete={g.custom ? () => deleteCustom(g.id) : undefined} />
                     ))}
                   </div>
                 )}
@@ -145,13 +207,48 @@ function Home() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {favList.map((g) => (
-                  <GrantCard key={g.id} grant={g} isFav onToggle={() => toggleFav(g.id)} />
+                  <GrantCard key={g.id} grant={g} isFav onToggle={() => toggleFav(g.id)} onEdit={g.custom ? () => openEdit(g) : undefined} onDelete={g.custom ? () => deleteCustom(g.id) : undefined} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="mine" className="mt-6">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">自分の助成金・補助金</h2>
+                <p className="text-xs text-muted-foreground">団体が独自に把握している情報を登録して、検索・お気に入りと一緒に管理できます。</p>
+              </div>
+              <Button onClick={openNew} className="gap-1"><Plus className="h-4 w-4" /> 新規登録</Button>
+            </div>
+            {customs.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-card/60 p-12 text-center">
+                <Sprout className="mx-auto h-10 w-10 text-primary" />
+                <p className="mt-3 text-sm text-muted-foreground">まだ登録がありません。「新規登録」から追加してみましょう。</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {customs.map((g) => (
+                  <GrantCard key={g.id} grant={g} isFav={favorites.has(g.id)} onToggle={() => toggleFav(g.id)} onEdit={() => openEdit(g)} onDelete={() => deleteCustom(g.id)} />
                 ))}
               </div>
             )}
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "助成金情報の編集" : "助成金・補助金を登録"}</DialogTitle>
+          </DialogHeader>
+          <CustomGrantForm draft={draft} setDraft={setDraft} />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDialogOpen(false)}>キャンセル</Button>
+            <Button onClick={saveDraft} disabled={!draft.title.trim() || !draft.organization.trim()}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <footer className="border-t border-border/60 bg-card/40 py-6 text-center text-xs text-muted-foreground">
         © つなぐ助成 — NPOの活動を、助成金でつなぐ。
@@ -197,7 +294,7 @@ function Hero() {
           <span className="text-primary">ちょうどよい助成金</span>と結ぶ。
         </h2>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-          募集時期と金額でしぼり込み、団体にぴったりの補助金・助成金をすばやく見つけて管理できます。
+          地域・募集時期・金額でしぼり込み、自団体で把握している助成金も登録して一元管理できます。
         </p>
       </div>
     </section>
@@ -205,10 +302,11 @@ function Hero() {
 }
 
 function FilterPanel({
-  query, setQuery, category, setCategory, amountRange, setAmountRange, month, setMonth, onReset,
+  query, setQuery, category, setCategory, region, setRegion, amountRange, setAmountRange, month, setMonth, onReset,
 }: {
   query: string; setQuery: (v: string) => void;
   category: string; setCategory: (v: string) => void;
+  region: string; setRegion: (v: string) => void;
   amountRange: [number, number]; setAmountRange: (v: [number, number]) => void;
   month: string; setMonth: (v: string) => void;
   onReset: () => void;
@@ -240,6 +338,20 @@ function FilterPanel({
               {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+
+        <div>
+          <Label className="text-xs flex items-center gap-1"><MapPin className="h-3 w-3" /> 地域</Label>
+          <Select value={region} onValueChange={setRegion}>
+            <SelectTrigger className="mt-1.5 bg-background"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="すべて">すべての地域</SelectItem>
+              {REGIONS.filter((r) => r !== "全国").map((r) => (
+                <SelectItem key={r} value={r}>{r}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-[10px] text-muted-foreground">選択した地域＋全国対象の助成金を表示します。</p>
         </div>
 
         <div>
@@ -276,10 +388,79 @@ function FilterPanel({
   );
 }
 
-function GrantCard({ grant, isFav, onToggle }: { grant: Grant; isFav: boolean; onToggle: () => void }) {
+function CustomGrantForm({ draft, setDraft }: { draft: CustomGrantInput; setDraft: (d: CustomGrantInput) => void }) {
+  const upd = <K extends keyof CustomGrantInput>(k: K, v: CustomGrantInput[K]) => setDraft({ ...draft, [k]: v });
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label className="text-xs">名称 *</Label>
+        <Input value={draft.title} onChange={(e) => upd("title", e.target.value)} placeholder="例）地域活性化助成金" />
+      </div>
+      <div>
+        <Label className="text-xs">実施団体 *</Label>
+        <Input value={draft.organization} onChange={(e) => upd("organization", e.target.value)} placeholder="例）〇〇財団" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">分野</Label>
+          <Select value={draft.category} onValueChange={(v) => upd("category", v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-xs">地域</Label>
+          <Select value={draft.region ?? "全国"} onValueChange={(v) => upd("region", v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {REGIONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">下限金額（円）</Label>
+          <Input type="number" value={draft.amountMin} onChange={(e) => upd("amountMin", Number(e.target.value) || 0)} />
+        </div>
+        <div>
+          <Label className="text-xs">上限金額（円）</Label>
+          <Input type="number" value={draft.amountMax} onChange={(e) => upd("amountMax", Number(e.target.value) || 0)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">募集開始</Label>
+          <Input type="date" value={draft.applicationStart} onChange={(e) => upd("applicationStart", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs">募集締切</Label>
+          <Input type="date" value={draft.applicationEnd} onChange={(e) => upd("applicationEnd", e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs">対象</Label>
+        <Input value={draft.target} onChange={(e) => upd("target", e.target.value)} placeholder="例）NPO法人" />
+      </div>
+      <div>
+        <Label className="text-xs">説明</Label>
+        <Textarea value={draft.description} onChange={(e) => upd("description", e.target.value)} rows={3} />
+      </div>
+      <div>
+        <Label className="text-xs">参照URL</Label>
+        <Input value={draft.url ?? ""} onChange={(e) => upd("url", e.target.value)} placeholder="https://…" />
+      </div>
+    </div>
+  );
+}
+
+function GrantCard({ grant, isFav, onToggle, onEdit, onDelete }: { grant: Grant; isFav: boolean; onToggle: () => void; onEdit?: () => void; onDelete?: () => void }) {
   const days = daysUntil(grant.applicationEnd);
   const urgent = days >= 0 && days <= 14;
   const closed = days < 0;
+  const region = getGrantRegion(grant);
 
   return (
     <Card className="group relative overflow-hidden border-border bg-card/90 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
@@ -288,6 +469,8 @@ function GrantCard({ grant, isFav, onToggle }: { grant: Grant; isFav: boolean; o
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge className="border-0 bg-accent text-accent-foreground">{grant.category}</Badge>
+            <Badge variant="outline" className="gap-1"><MapPin className="h-3 w-3" />{region}</Badge>
+            {grant.custom && <Badge className="border-0 bg-primary/15 text-primary">自分の登録</Badge>}
             {urgent && <Badge className="border-0 bg-destructive text-destructive-foreground">締切間近</Badge>}
             {closed && <Badge variant="outline">受付終了</Badge>}
           </div>
@@ -332,9 +515,27 @@ function GrantCard({ grant, isFav, onToggle }: { grant: Grant; isFav: boolean; o
           <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Users className="h-3 w-3" /> {grant.target}
           </p>
-          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10 hover:text-primary">
-            詳細 <ExternalLink className="h-3 w-3" />
-          </Button>
+          <div className="flex items-center gap-1">
+            {onEdit && (
+              <Button size="sm" variant="ghost" onClick={onEdit} className="h-7 gap-1 text-xs">
+                <Pencil className="h-3 w-3" /> 編集
+              </Button>
+            )}
+            {onDelete && (
+              <Button size="sm" variant="ghost" onClick={onDelete} className="h-7 gap-1 text-xs text-destructive hover:text-destructive">
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            )}
+            {grant.url ? (
+              <a href={grant.url} target="_blank" rel="noreferrer" className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-primary hover:bg-primary/10">
+                詳細 <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : (
+              <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs text-primary hover:bg-primary/10 hover:text-primary">
+                詳細 <ExternalLink className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
