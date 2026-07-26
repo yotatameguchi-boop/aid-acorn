@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
       { title: "つなぐ助成 — NPO向け 補助金・助成金 検索管理" },
       { name: "description", content: "地域・募集時期・金額でNPO向け助成金を検索し、自分の持つ助成金情報も登録・管理できます。" },
       { property: "og:title", content: "つなぐ助成 — NPO向け 補助金・助成金 検索管理" },
-      { property: "og:description", content: "NPOのための助成金検索・管理ツール。" },
+      { property: "og:description", content: "地域・募集時期・金額でNPO向け助成金を検索し、自分の持つ助成金情報も登録・管理できます。" },
     ],
   }),
   component: Home,
