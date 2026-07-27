@@ -55,6 +55,8 @@ function Home() {
   const [month, setMonth] = useState<string>("すべて");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [customs, setCustoms] = useState<Grant[]>([]);
+  const [remote, setRemote] = useState<Grant[]>([]);
+  const [remoteStatus, setRemoteStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [tab, setTab] = useState("search");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -83,6 +85,20 @@ function Home() {
     try { localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(customs)); } catch { /* ignore */ }
   }, [customs]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setRemoteStatus("loading");
+    fetch("/api/jgrants")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: { grants?: Grant[] }) => {
+        if (cancelled) return;
+        setRemote(Array.isArray(data.grants) ? data.grants : []);
+        setRemoteStatus("ok");
+      })
+      .catch(() => { if (!cancelled) setRemoteStatus("error"); });
+    return () => { cancelled = true; };
+  }, []);
+
   const toggleFav = (id: string) =>
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -90,7 +106,7 @@ function Home() {
       return next;
     });
 
-  const allGrants = useMemo(() => [...customs, ...GRANTS], [customs]);
+  const allGrants = useMemo(() => [...customs, ...GRANTS, ...remote], [customs, remote]);
 
   const filtered = useMemo(() => {
     return allGrants.filter((g) => {
