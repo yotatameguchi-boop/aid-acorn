@@ -55,6 +55,8 @@ function Home() {
   const [month, setMonth] = useState<string>("すべて");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [customs, setCustoms] = useState<Grant[]>([]);
+  const [remote, setRemote] = useState<Grant[]>([]);
+  const [remoteStatus, setRemoteStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [tab, setTab] = useState("search");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -83,6 +85,20 @@ function Home() {
     try { localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(customs)); } catch { /* ignore */ }
   }, [customs]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setRemoteStatus("loading");
+    fetch("/api/jgrants")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data: { grants?: Grant[] }) => {
+        if (cancelled) return;
+        setRemote(Array.isArray(data.grants) ? data.grants : []);
+        setRemoteStatus("ok");
+      })
+      .catch(() => { if (!cancelled) setRemoteStatus("error"); });
+    return () => { cancelled = true; };
+  }, []);
+
   const toggleFav = (id: string) =>
     setFavorites((prev) => {
       const next = new Set(prev);
@@ -90,7 +106,7 @@ function Home() {
       return next;
     });
 
-  const allGrants = useMemo(() => [...customs, ...GRANTS], [customs]);
+  const allGrants = useMemo(() => [...customs, ...GRANTS, ...remote], [customs, remote]);
 
   const filtered = useMemo(() => {
     return allGrants.filter((g) => {
@@ -177,6 +193,9 @@ function Home() {
                 <div className="mb-4 flex items-baseline justify-between">
                   <h2 className="text-xl font-semibold">
                     {filtered.length} <span className="text-sm font-normal text-muted-foreground">件の助成金</span>
+                    {remoteStatus === "loading" && <span className="ml-2 text-xs font-normal text-muted-foreground">(jGrants取得中…)</span>}
+                    {remoteStatus === "ok" && remote.length > 0 && <span className="ml-2 text-xs font-normal text-leaf">+jGrants {remote.length}件</span>}
+                    {remoteStatus === "error" && <span className="ml-2 text-xs font-normal text-destructive">jGrants取得失敗</span>}
                   </h2>
                   <p className="text-xs text-muted-foreground">締切が近い順</p>
                 </div>
