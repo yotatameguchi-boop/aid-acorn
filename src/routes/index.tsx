@@ -193,6 +193,9 @@ function Home() {
                 <div className="mb-4 flex items-baseline justify-between">
                   <h2 className="text-xl font-semibold">
                     {filtered.length} <span className="text-sm font-normal text-muted-foreground">件の助成金</span>
+                    {remoteStatus === "loading" && <span className="ml-2 text-xs font-normal text-muted-foreground">(jGrants取得中…)</span>}
+                    {remoteStatus === "ok" && remote.length > 0 && <span className="ml-2 text-xs font-normal text-leaf">+jGrants {remote.length}件</span>}
+                    {remoteStatus === "error" && <span className="ml-2 text-xs font-normal text-destructive">jGrants取得失敗</span>}
                   </h2>
                   <p className="text-xs text-muted-foreground">締切が近い順</p>
                 </div>
