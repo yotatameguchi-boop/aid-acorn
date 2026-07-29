@@ -635,3 +635,84 @@ function EmptyState() {
     </div>
   );
 }
+
+function AiSearchPanel({
+  question, setQuestion, loading, onRun, answer, filters, matchedIds, matches, error,
+}: {
+  question: string; setQuestion: (v: string) => void;
+  loading: boolean; onRun: () => void;
+  answer: string; filters: ExtractedFilters | null; matchedIds: string[];
+  matches: Grant[]; error: string;
+}) {
+  const chips: { label: string; value: string }[] = [];
+  if (filters) {
+    if (filters.category !== "すべて") chips.push({ label: "分野", value: filters.category });
+    if (filters.region !== "すべて") chips.push({ label: "地域", value: filters.region });
+    if (filters.month !== "すべて") chips.push({ label: "募集月", value: `${filters.month}月` });
+    if (filters.amountMin > 0 || filters.amountMax < 100_000_000)
+      chips.push({ label: "金額", value: `${formatYen(filters.amountMin)}〜${formatYen(filters.amountMax)}` });
+    if (filters.affiliation) chips.push({ label: "所属", value: filters.affiliation });
+    if (filters.eligibility) chips.push({ label: "応募資格", value: filters.eligibility });
+    if (filters.deadlineNote) chips.push({ label: "締切", value: filters.deadlineNote });
+    if (filters.keywords) chips.push({ label: "キーワード", value: filters.keywords });
+  }
+  return (
+    <div className="mb-6 rounded-2xl border border-primary/30 bg-gradient-to-br from-accent/40 via-card to-warm/20 p-5 shadow-sm">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+          <Bot className="h-4 w-4" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold">AIで探す（自然文でOK）</h3>
+          <p className="text-[11px] text-muted-foreground">研究分野・所属・応募資格・金額・締切・地域を抽出して検索します。</p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onRun(); } }}
+          placeholder="例: 東京のNPOで、子ども教育に使える500万円以内の助成金、締切が来月のもの"
+          className="bg-background"
+        />
+        <Button onClick={onRun} disabled={loading || !question.trim()} className="gap-1">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          AIに聞く
+        </Button>
+      </div>
+      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+      {chips.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {chips.map((c, i) => (
+            <Badge key={i} variant="secondary" className="bg-primary/10 text-primary border-0">
+              <span className="text-[10px] opacity-70 mr-1">{c.label}:</span>{c.value}
+            </Badge>
+          ))}
+        </div>
+      )}
+      {answer && (
+        <div className="mt-3 rounded-lg border border-border bg-background/70 p-3 text-sm leading-relaxed whitespace-pre-wrap">
+          {answer}
+        </div>
+      )}
+      {matches.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs font-medium text-muted-foreground mb-1.5">AIが選んだ候補（検索結果に基づく）</p>
+          <ul className="space-y-1">
+            {matches.map((g) => (
+              <li key={g.id} className="text-xs">
+                <a href={g.url || "#"} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  {g.title}
+                </a>
+                <span className="text-muted-foreground"> — {g.organization} / 締切 {formatDate(g.applicationEnd)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {!answer && matchedIds.length === 0 && !loading && (
+        <p className="mt-2 text-[11px] text-muted-foreground">※ 検索結果に無い内容は回答しません。</p>
+      )}
+    </div>
+  );
+}
