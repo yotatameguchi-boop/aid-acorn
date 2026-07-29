@@ -220,6 +220,12 @@ function Home() {
           </TabsList>
 
           <TabsContent value="search" className="mt-6">
+            <AiSearchPanel
+              question={aiQuestion} setQuestion={setAiQuestion}
+              loading={aiLoading} onRun={runAgent}
+              answer={aiAnswer} filters={aiFilters} matchedIds={aiMatched} error={aiError}
+              matches={allGrants.filter((g) => aiMatched.includes(g.id))}
+            />
             <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
               <FilterPanel
                 query={query} setQuery={setQuery}
