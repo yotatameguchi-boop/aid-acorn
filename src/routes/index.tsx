@@ -63,6 +63,13 @@ function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<CustomGrantInput>(emptyDraft);
+  const [aiQuestion, setAiQuestion] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAnswer, setAiAnswer] = useState<string>("");
+  const [aiFilters, setAiFilters] = useState<ExtractedFilters | null>(null);
+  const [aiMatched, setAiMatched] = useState<string[]>([]);
+  const [aiError, setAiError] = useState<string>("");
+  const askAgent = useServerFn(askGrantAgent);
 
   useEffect(() => {
     try {
