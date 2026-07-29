@@ -168,12 +168,43 @@ function Home() {
     setFavorites((prev) => { const n = new Set(prev); n.delete(id); return n; });
   };
 
+  const runAgent = async () => {
+    const q = aiQuestion.trim();
+    if (!q) return;
+    setAiLoading(true);
+    setAiError("");
+    setAiAnswer("");
+    try {
+      const compact = allGrants.slice(0, 400).map((g) => ({
+        id: g.id, title: g.title, organization: g.organization, category: g.category,
+        region: getGrantRegion(g), amountMin: g.amountMin, amountMax: g.amountMax,
+        applicationStart: g.applicationStart, applicationEnd: g.applicationEnd, target: g.target,
+      }));
+      const res = await askAgent({ data: { question: q, grants: compact } });
+      setAiFilters(res.filters);
+      setAiAnswer(res.answer);
+      setAiMatched(res.matchedIds);
+      // apply filters to UI
+      setQuery(res.filters.keywords || "");
+      setCategory(res.filters.category);
+      setRegion(res.filters.region);
+      setMonth(res.filters.month);
+      setAmountRange([res.filters.amountMin, res.filters.amountMax]);
+      setTab("search");
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "AI検索に失敗しました");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <Header favCount={favorites.size} />
 
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <Hero />
+
 
         <Tabs value={tab} onValueChange={setTab} className="mt-10">
           <TabsList className="bg-card/70 backdrop-blur border border-border shadow-sm">
