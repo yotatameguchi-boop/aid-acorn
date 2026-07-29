@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 
 const FAV_STORAGE_KEY = "tsunagu-josei:favorites:v1";
 const CUSTOM_STORAGE_KEY = "tsunagu-josei:custom:v1";
-import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles, MapPin, Plus, Trash2, Pencil } from "lucide-react";
+import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles, MapPin, Plus, Trash2, Pencil, Bot, Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { askGrantAgent, type ExtractedFilters } from "@/lib/ai-search.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
