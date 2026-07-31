@@ -693,26 +693,79 @@ function AiSearchPanel({
       {answer && (
         <div className="mt-3 rounded-lg border border-border bg-background/70 p-3 text-sm leading-relaxed whitespace-pre-wrap">
           {answer}
+          {matches.length > 0 && (
+            <span className="ml-1 align-middle text-[10px] text-muted-foreground">
+              （出典: {matches.map((_, i) => `[${i + 1}]`).join(" ")}）
+            </span>
+          )}
         </div>
       )}
       {matches.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-muted-foreground mb-1.5">AIが選んだ候補（検索結果に基づく）</p>
-          <ul className="space-y-1">
-            {matches.map((g) => (
-              <li key={g.id} className="text-xs">
-                <a href={g.url || "#"} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-                  {g.title}
-                </a>
-                <span className="text-muted-foreground"> — {g.organization} / 締切 {formatDate(g.applicationEnd)}</span>
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            出典（AI回答の根拠となった検索結果の該当行）
+          </p>
+          <ol className="space-y-2">
+            {matches.map((g, i) => (
+              <li
+                key={g.id}
+                className="rounded-lg border border-border bg-background/70 p-2.5 text-xs"
+              >
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/15 text-[10px] font-semibold text-primary">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={g.url || "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {g.title}
+                    </a>
+                    <p className="mt-0.5 text-muted-foreground">{g.organization}</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      <Badge variant="outline" className="text-[10px]">{g.category}</Badge>
+                      <Badge variant="outline" className="text-[10px]">{getGrantRegion(g)}</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {formatYen(g.amountMin)}〜{formatYen(g.amountMax)}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        募集 {formatDate(g.applicationStart)}〜{formatDate(g.applicationEnd)}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {g.custom ? "出典: 自分の登録" : g.id.startsWith("jg-") ? "出典: jGrants" : "出典: 掲載データ"}
+                      </Badge>
+                    </div>
+                    {g.target && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">対象: {g.target}</p>
+                    )}
+                    <p className="mt-1 text-[10px] text-muted-foreground/80">
+                      データID: {g.id}
+                      {g.url ? " ・ " : ""}
+                      {g.url && (
+                        <a href={g.url} target="_blank" rel="noreferrer" className="underline">
+                          公式サイト
+                        </a>
+                      )}
+                    </p>
+                  </div>
+                </div>
               </li>
             ))}
-          </ul>
+          </ol>
         </div>
+      )}
+      {answer && matchedIds.length > matches.length && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          ※ AIが挙げた {matchedIds.length - matches.length} 件は現在の検索結果内に見つからないため、出典として表示していません。
+        </p>
       )}
       {!answer && matchedIds.length === 0 && !loading && (
         <p className="mt-2 text-[11px] text-muted-foreground">※ 検索結果に無い内容は回答しません。</p>
       )}
+
     </div>
   );
 }
