@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# つなぐ助成
+
+新しいプロジェクトを始めよう。npoの補助金や助成金を検索管理できるアプリを作りたい。　募集時期や金額で検索できるようにして。　配色は暖かな暖色や緑系で作って。　実装お願い
 
 This project was built with [Lovable](https://lovable.dev).
 
+**Live app**: https://aid-acorn.lovable.app
+
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/71f662a1-30bc-4149-877f-5a6d65b18834).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +24,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
