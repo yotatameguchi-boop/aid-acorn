@@ -1,11 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const FAV_STORAGE_KEY = "tsunagu-josei:favorites:v1";
 const CUSTOM_STORAGE_KEY = "tsunagu-josei:custom:v1";
-import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles, MapPin, Plus, Trash2, Pencil, Bot, Loader2 } from "lucide-react";
+import { Search, Sprout, Calendar, Coins, Heart, Building2, Users, ExternalLink, Sparkles, MapPin, Plus, Trash2, Pencil, Bot, Loader2, LogIn, LogOut, RefreshCw } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { askGrantAgent, type ExtractedFilters } from "@/lib/ai-search.functions";
+import { listGrants } from "@/lib/grants.functions";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  fetchFavorites, addFavorite, removeFavorite,
+  fetchUserGrants, createUserGrant, updateUserGrant, deleteUserGrant,
+} from "@/lib/user-data";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +22,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { GRANTS, CATEGORIES, REGIONS, getGrantRegion, formatYen, formatDate, daysUntil, type Grant } from "@/lib/grants-data";
+import { CATEGORIES, REGIONS, getGrantRegion, formatYen, formatDate, daysUntil, type Grant } from "@/lib/grants-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -26,10 +32,19 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "地域・募集時期・金額でNPO向け助成金を検索し、自分の持つ助成金情報も登録・管理できます。" },
       { property: "og:title", content: "つなぐ助成 — NPO向け 補助金・助成金 検索管理" },
       { property: "og:description", content: "地域・募集時期・金額でNPO向け助成金を検索し、自分の持つ助成金情報も登録・管理できます。" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: () => listGrants(),
+  errorComponent: ({ error }) => (
+    <div className="flex min-h-screen items-center justify-center p-8 text-center text-sm text-muted-foreground">
+      データの読み込みに失敗しました。{error.message}
+    </div>
+  ),
   component: Home,
 });
+
 
 const MAX_AMOUNT = 100_000_000;
 
@@ -50,6 +65,8 @@ const emptyDraft: CustomGrantInput = {
 };
 
 function Home() {
+  const { grants: dbGrants, syncedAt } = Route.useLoaderData();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("すべて");
   const [region, setRegion] = useState<string>("すべて");
@@ -57,8 +74,7 @@ function Home() {
   const [month, setMonth] = useState<string>("すべて");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [customs, setCustoms] = useState<Grant[]>([]);
-  const [remote, setRemote] = useState<Grant[]>([]);
-  const [remoteStatus, setRemoteStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState("search");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -71,51 +87,61 @@ function Home() {
   const [aiError, setAiError] = useState<string>("");
   const askAgent = useServerFn(askGrantAgent);
 
-  useEffect(() => {
+  // 未ログイン時はブラウザ保存、ログイン時はクラウド（DB）に保存する。
+  const refreshUserData = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(FAV_STORAGE_KEY);
-      if (raw) {
-        const ids = JSON.parse(raw) as string[];
-        if (Array.isArray(ids)) setFavorites(new Set(ids));
-      }
-      const rawC = localStorage.getItem(CUSTOM_STORAGE_KEY);
-      if (rawC) {
-        const list = JSON.parse(rawC) as Grant[];
-        if (Array.isArray(list)) setCustoms(list.map((g) => ({ ...g, custom: true })));
-      }
+      const [favs, mine] = await Promise.all([fetchFavorites(), fetchUserGrants()]);
+      setFavorites(new Set(favs));
+      setCustoms(mine);
     } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (user) { void refreshUserData(); return; }
+    try {
+      const raw = localStorage.getItem(FAV_STORAGE_KEY);
+      const ids = raw ? (JSON.parse(raw) as string[]) : [];
+      setFavorites(new Set(Array.isArray(ids) ? ids : []));
+      const rawC = localStorage.getItem(CUSTOM_STORAGE_KEY);
+      const list = rawC ? (JSON.parse(rawC) as Grant[]) : [];
+      setCustoms(Array.isArray(list) ? list.map((g) => ({ ...g, custom: true })) : []);
+    } catch { /* ignore */ }
+  }, [user, authLoading, refreshUserData]);
+
+  useEffect(() => {
+    if (user || authLoading) return;
     try { localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(Array.from(favorites))); } catch { /* ignore */ }
-  }, [favorites]);
+  }, [favorites, user, authLoading]);
 
   useEffect(() => {
+    if (user || authLoading) return;
     try { localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(customs)); } catch { /* ignore */ }
-  }, [customs]);
+  }, [customs, user, authLoading]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setRemoteStatus("loading");
-    fetch("/api/jgrants")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((data: { grants?: Grant[] }) => {
-        if (cancelled) return;
-        setRemote(Array.isArray(data.grants) ? data.grants : []);
-        setRemoteStatus("ok");
-      })
-      .catch(() => { if (!cancelled) setRemoteStatus("error"); });
-    return () => { cancelled = true; };
-  }, []);
-
-  const toggleFav = (id: string) =>
+  const toggleFav = async (id: string) => {
+    const has = favorites.has(id);
     setFavorites((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (has) next.delete(id); else next.add(id);
       return next;
     });
+    if (!user) return;
+    try {
+      if (has) await removeFavorite(id); else await addFavorite(user.id, id);
+    } catch { void refreshUserData(); }
+  };
 
-  const allGrants = useMemo(() => [...customs, ...GRANTS, ...remote], [customs, remote]);
+  const runSync = async () => {
+    setSyncing(true);
+    try {
+      await fetch("/api/public/hooks/sync-jgrants", { method: "POST" });
+      window.location.reload();
+    } finally { setSyncing(false); }
+  };
+
+  const allGrants = useMemo(() => [...customs, ...dbGrants], [customs, dbGrants]);
+
 
   const filtered = useMemo(() => {
     return allGrants.filter((g) => {
@@ -153,9 +179,15 @@ function Home() {
     setDraft({ ...emptyDraft, ...rest });
     setDialogOpen(true);
   };
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (!draft.title.trim() || !draft.organization.trim()) return;
-    if (editingId) {
+    if (user) {
+      try {
+        if (editingId) await updateUserGrant(editingId, user.id, draft);
+        else await createUserGrant(user.id, draft);
+        await refreshUserData();
+      } catch { /* ignore */ }
+    } else if (editingId) {
       setCustoms((prev) => prev.map((g) => (g.id === editingId ? { ...g, ...draft, id: editingId, custom: true } : g)));
     } else {
       const id = `my-${Date.now().toString(36)}`;
@@ -163,10 +195,14 @@ function Home() {
     }
     setDialogOpen(false);
   };
-  const deleteCustom = (id: string) => {
+  const deleteCustom = async (id: string) => {
     setCustoms((prev) => prev.filter((g) => g.id !== id));
     setFavorites((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    if (user) {
+      try { await deleteUserGrant(id); } catch { void refreshUserData(); }
+    }
   };
+
 
   const runAgent = async () => {
     const q = aiQuestion.trim();
@@ -200,7 +236,7 @@ function Home() {
 
   return (
     <div className="min-h-screen">
-      <Header favCount={favorites.size} />
+      <Header favCount={favorites.size} email={user?.email} onSignOut={() => { void signOut(); setFavorites(new Set()); setCustoms([]); }} />
 
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <Hero />
@@ -239,12 +275,20 @@ function Home() {
                 <div className="mb-4 flex items-baseline justify-between">
                   <h2 className="text-xl font-semibold">
                     {filtered.length} <span className="text-sm font-normal text-muted-foreground">件の助成金</span>
-                    {remoteStatus === "loading" && <span className="ml-2 text-xs font-normal text-muted-foreground">(jGrants取得中…)</span>}
-                    {remoteStatus === "ok" && remote.length > 0 && <span className="ml-2 text-xs font-normal text-leaf">+jGrants {remote.length}件</span>}
-                    {remoteStatus === "error" && <span className="ml-2 text-xs font-normal text-destructive">jGrants取得失敗</span>}
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      (データベース {dbGrants.length}件)
+                    </span>
                   </h2>
-                  <p className="text-xs text-muted-foreground">締切が近い順</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-xs text-muted-foreground">
+                      {syncedAt ? `jGrants最終同期: ${formatDate(syncedAt.slice(0, 10))}` : "締切が近い順"}
+                    </p>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={runSync} disabled={syncing}>
+                      <RefreshCw className={cn("mr-1 h-3 w-3", syncing && "animate-spin")} /> 更新
+                    </Button>
+                  </div>
                 </div>
+
                 {filtered.length === 0 ? (
                   <EmptyState />
                 ) : (
@@ -322,7 +366,7 @@ function Home() {
   );
 }
 
-function Header({ favCount }: { favCount: number }) {
+function Header({ favCount, email, onSignOut }: { favCount: number; email?: string | null; onSignOut: () => void }) {
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -339,11 +383,24 @@ function Header({ favCount }: { favCount: number }) {
           <Badge variant="secondary" className="gap-1 bg-accent text-accent-foreground border-0">
             <Heart className="h-3 w-3" /> {favCount}
           </Badge>
+          {email ? (
+            <>
+              <span className="hidden max-w-[160px] truncate text-xs text-muted-foreground sm:inline">{email}</span>
+              <Button variant="ghost" size="sm" onClick={onSignOut}>
+                <LogOut className="mr-1 h-4 w-4" /> ログアウト
+              </Button>
+            </>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/auth"><LogIn className="mr-1 h-4 w-4" /> ログイン</Link>
+            </Button>
+          )}
         </div>
       </div>
     </header>
   );
 }
+
 
 function Hero() {
   return (
