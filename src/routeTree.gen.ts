@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiJgrantsRouteImport } from './routes/api/jgrants'
+import { Route as ApiPublicHooksSyncJgrantsRouteImport } from './routes/api/public/hooks/sync-jgrants'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -23,40 +29,50 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiJgrantsRoute = ApiJgrantsRouteImport.update({
-  id: '/api/jgrants',
-  path: '/api/jgrants',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const ApiPublicHooksSyncJgrantsRoute =
+  ApiPublicHooksSyncJgrantsRouteImport.update({
+    id: '/api/public/hooks/sync-jgrants',
+    path: '/api/public/hooks/sync-jgrants',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/jgrants': typeof ApiJgrantsRoute
+  '/api/public/hooks/sync-jgrants': typeof ApiPublicHooksSyncJgrantsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/jgrants': typeof ApiJgrantsRoute
+  '/api/public/hooks/sync-jgrants': typeof ApiPublicHooksSyncJgrantsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/api/jgrants': typeof ApiJgrantsRoute
+  '/api/public/hooks/sync-jgrants': typeof ApiPublicHooksSyncJgrantsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sitemap.xml' | '/api/jgrants'
+  fullPaths: '/' | '/auth' | '/sitemap.xml' | '/api/public/hooks/sync-jgrants'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sitemap.xml' | '/api/jgrants'
-  id: '__root__' | '/' | '/sitemap.xml' | '/api/jgrants'
+  to: '/' | '/auth' | '/sitemap.xml' | '/api/public/hooks/sync-jgrants'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/sitemap.xml'
+    | '/api/public/hooks/sync-jgrants'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  ApiJgrantsRoute: typeof ApiJgrantsRoute
+  ApiPublicHooksSyncJgrantsRoute: typeof ApiPublicHooksSyncJgrantsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -68,6 +84,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -75,11 +98,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/jgrants': {
-      id: '/api/jgrants'
-      path: '/api/jgrants'
-      fullPath: '/api/jgrants'
-      preLoaderRoute: typeof ApiJgrantsRouteImport
+    '/api/public/hooks/sync-jgrants': {
+      id: '/api/public/hooks/sync-jgrants'
+      path: '/api/public/hooks/sync-jgrants'
+      fullPath: '/api/public/hooks/sync-jgrants'
+      preLoaderRoute: typeof ApiPublicHooksSyncJgrantsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -87,8 +110,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  ApiJgrantsRoute: ApiJgrantsRoute,
+  ApiPublicHooksSyncJgrantsRoute: ApiPublicHooksSyncJgrantsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
