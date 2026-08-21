@@ -1,12 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import type { Grant } from "@/lib/grants-data";
-
+// jGrants (デジタル庁) 公開APIから公募情報を取得し、DB行の形に整形する。サーバー専用。
 const JGRANTS_ENDPOINT = "https://api.jgrants-portal.go.jp/exp/v1/public/subsidies";
 const KEYWORDS = ["補助", "助成", "支援", "交付"];
 
 type JGrantsItem = {
   id: string;
-  name?: string;
   title: string;
   subsidy_max_limit?: number | null;
   acceptance_start_datetime?: string | null;
@@ -14,6 +11,22 @@ type JGrantsItem = {
   target_area_search?: string | null;
   target_number_of_employees?: string | null;
   institution_name?: string | null;
+};
+
+export type GrantRow = {
+  id: string;
+  title: string;
+  organization: string;
+  category: string;
+  amount_min: number;
+  amount_max: number;
+  application_start: string;
+  application_end: string;
+  target: string;
+  description: string;
+  url: string | null;
+  region: string;
+  source: string;
 };
 
 const AREA_TO_REGION: Record<string, string> = {
@@ -33,11 +46,11 @@ const AREA_TO_REGION: Record<string, string> = {
 function mapArea(area?: string | null): string {
   if (!area) return "全国";
   if (area.includes("全国")) return "全国";
-  const first = area.split(/[、,\s\/]/)[0]?.trim();
+  const first = area.split(/[、,\s/]/)[0]?.trim();
   return (first && AREA_TO_REGION[first]) || "全国";
 }
 
-function guessCategory(title: string): Grant["category"] {
+function guessCategory(title: string): string {
   if (/子ども|こども|教育|学校|若者/.test(title)) return "子ども・教育";
   if (/環境|自然|再エネ|脱炭素|森林|海洋/.test(title)) return "環境・自然";
   if (/福祉|医療|介護|障害|健康/.test(title)) return "福祉・医療";
@@ -47,7 +60,7 @@ function guessCategory(title: string): Grant["category"] {
   return "地域振興";
 }
 
-function toGrant(item: JGrantsItem): Grant | null {
+function toRow(item: JGrantsItem): GrantRow | null {
   if (!item.acceptance_end_datetime) return null;
   const end = new Date(item.acceptance_end_datetime);
   if (Number.isNaN(end.getTime()) || end.getTime() < Date.now()) return null;
@@ -58,60 +71,31 @@ function toGrant(item: JGrantsItem): Grant | null {
     title: item.title,
     organization: item.institution_name || "jGrants掲載機関",
     category: guessCategory(item.title),
-    amountMin: 0,
-    amountMax: Math.min(max, 100_000_000),
-    applicationStart: start.toISOString().slice(0, 10),
-    applicationEnd: end.toISOString().slice(0, 10),
+    amount_min: 0,
+    amount_max: Math.min(max, 100_000_000),
+    application_start: start.toISOString().slice(0, 10),
+    application_end: end.toISOString().slice(0, 10),
     target: item.target_number_of_employees || "事業者・団体",
     description: `jGrants（デジタル庁）掲載の公募情報。対象地域: ${item.target_area_search || "—"}`,
     url: `https://www.jgrants-portal.go.jp/subsidy/${item.id}`,
     region: mapArea(item.target_area_search),
+    source: "jgrants",
   };
 }
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-} as const;
-
-export const Route = createFileRoute("/api/jgrants")({
-  server: {
-    handlers: {
-      OPTIONS: async () => new Response(null, { status: 204, headers: CORS }),
-      GET: async () => {
-        try {
-          const seen = new Map<string, Grant>();
-          await Promise.all(
-            KEYWORDS.map(async (kw) => {
-              const url = `${JGRANTS_ENDPOINT}?keyword=${encodeURIComponent(kw)}&sort=acceptance_end_datetime&order=ASC&acceptance=1`;
-              const res = await fetch(url, { headers: { Accept: "application/json" } });
-              if (!res.ok) return;
-              const json = (await res.json()) as { result?: JGrantsItem[] };
-              for (const item of json.result ?? []) {
-                const g = toGrant(item);
-                if (g && !seen.has(g.id)) seen.set(g.id, g);
-              }
-            }),
-          );
-          const grants = Array.from(seen.values()).sort(
-            (a, b) => new Date(a.applicationEnd).getTime() - new Date(b.applicationEnd).getTime(),
-          );
-          return new Response(JSON.stringify({ grants, source: "jGrants", fetchedAt: new Date().toISOString() }), {
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "public, max-age=3600, s-maxage=3600",
-              ...CORS,
-            },
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "unknown";
-          return new Response(JSON.stringify({ grants: [], error: message }), {
-            status: 502,
-            headers: { "Content-Type": "application/json", ...CORS },
-          });
-        }
-      },
-    },
-  },
-});
+export async function fetchJGrantsRows(): Promise<GrantRow[]> {
+  const seen = new Map<string, GrantRow>();
+  await Promise.all(
+    KEYWORDS.map(async (kw) => {
+      const url = `${JGRANTS_ENDPOINT}?keyword=${encodeURIComponent(kw)}&sort=acceptance_end_datetime&order=ASC&acceptance=1`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) return;
+      const json = (await res.json()) as { result?: JGrantsItem[] };
+      for (const item of json.result ?? []) {
+        const row = toRow(item);
+        if (row && !seen.has(row.id)) seen.set(row.id, row);
+      }
+    }),
+  );
+  return Array.from(seen.values());
+}
