@@ -46,7 +46,9 @@ export async function fetchUserGrants(): Promise<Grant[]> {
     .select(USER_GRANT_COLUMNS)
     .order("application_end", { ascending: true });
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => toGrant({ ...(row as unknown as GrantRecord), source: "user", custom: true }));
+  return (data ?? []).map((row) =>
+    toGrant({ ...(row as unknown as GrantRecord), source: "user", custom: true }),
+  );
 }
 
 export async function createUserGrant(userId: string, input: UserGrantInput) {

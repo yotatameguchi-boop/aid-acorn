@@ -30,3 +30,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env（Supabase等の接続情報。ローカル専用にする）
+.env
+.env.*
+!.env.example
+
+# Claude Code のローカル設定
+.claude/

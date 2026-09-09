@@ -21,7 +21,16 @@ export type AgentAnswer = {
 
 type CompactGrant = Pick<
   Grant,
-  "id" | "title" | "organization" | "category" | "region" | "amountMin" | "amountMax" | "applicationStart" | "applicationEnd" | "target"
+  | "id"
+  | "title"
+  | "organization"
+  | "category"
+  | "region"
+  | "amountMin"
+  | "amountMax"
+  | "applicationStart"
+  | "applicationEnd"
+  | "target"
 >;
 
 const MAX_AMOUNT = 100_000_000;
@@ -63,7 +72,11 @@ function safeParse(text: string): AgentAnswer | null {
   } catch {
     const m = trimmed.match(/\{[\s\S]*\}/);
     if (!m) return null;
-    try { return JSON.parse(m[0]) as AgentAnswer; } catch { return null; }
+    try {
+      return JSON.parse(m[0]) as AgentAnswer;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -106,8 +119,15 @@ export const askGrantAgent = createServerFn({ method: "POST" })
     if (!parsed) {
       return {
         filters: {
-          keywords: data.question, category: "すべて", region: "すべて", month: "すべて",
-          amountMin: 0, amountMax: MAX_AMOUNT, affiliation: "", eligibility: "", deadlineNote: "",
+          keywords: data.question,
+          category: "すべて",
+          region: "すべて",
+          month: "すべて",
+          amountMin: 0,
+          amountMax: MAX_AMOUNT,
+          affiliation: "",
+          eligibility: "",
+          deadlineNote: "",
         },
         answer: "AIの応答を解釈できませんでした。キーワードのみで検索します。",
         matchedIds: [],

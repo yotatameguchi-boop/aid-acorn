@@ -40,14 +40,20 @@ export function toGrant(row: GrantRecord & { custom?: boolean }): Grant {
 export const listGrants = createServerFn({ method: "GET" }).handler(async () => {
   const url = process.env["SUPABASE_URL"];
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  if (!url || !key) return { grants: [] as Grant[], syncedAt: null as string | null };
+  if (!url || !key) {
+    // 空一覧を黙って返すと「助成金0件」の画面が正常動作に見えてしまうので、
+    // 設定漏れであることをログに残す。
+    console.error("[listGrants] SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY が未設定です");
+    return { grants: [] as Grant[], syncedAt: null as string | null };
+  }
 
   const supabase = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: {
       fetch: (input, init) => {
         const h = new Headers(init?.headers);
-        if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+        if (key.startsWith("sb_") && h.get("Authorization") === `Bearer ${key}`)
+          h.delete("Authorization");
         h.set("apikey", key);
         return fetch(input, { ...init, headers: h });
       },
@@ -57,7 +63,9 @@ export const listGrants = createServerFn({ method: "GET" }).handler(async () => 
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("grants")
-    .select("id,title,organization,category,amount_min,amount_max,application_start,application_end,target,description,url,region,source")
+    .select(
+      "id,title,organization,category,amount_min,amount_max,application_start,application_end,target,description,url,region,source",
+    )
     .gte("application_end", today)
     .order("application_end", { ascending: true })
     .limit(1000);
