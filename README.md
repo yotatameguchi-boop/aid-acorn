@@ -29,13 +29,13 @@ npm run dev
 
 `.env.example` をコピーして `.env` を作り、値を埋める。`.env` は Git 管理外。
 
-| 変数 | 用途 |
-| --- | --- |
-| `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY` | サーバー側からの公開データ読み取り |
-| `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` | ブラウザ側（バンドルに埋め込まれる） |
-| `SUPABASE_SERVICE_ROLE_KEY` | jGrants取り込み時のRLSバイパス。**ブラウザに出さない** |
-| `LOVABLE_API_KEY` | AI検索（Lovable AI Gateway） |
-| `SYNC_SECRET` | jGrants取り込みAPIの実行間隔制限を免除する共有シークレット（任意） |
+| 変数                                                  | 用途                                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------ |
+| `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY`           | サーバー側からの公開データ読み取り                                 |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` | ブラウザ側（バンドルに埋め込まれる）                               |
+| `SUPABASE_SERVICE_ROLE_KEY`                           | jGrants取り込み時のRLSバイパス。**ブラウザに出さない**             |
+| `LOVABLE_API_KEY`                                     | AI検索（Lovable AI Gateway）                                       |
+| `SYNC_SECRET`                                         | jGrants取り込みAPIの実行間隔制限を免除する共有シークレット（任意） |
 
 ## jGrantsの自動取り込み
 

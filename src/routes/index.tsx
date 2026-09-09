@@ -1,8 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const FAV_STORAGE_KEY = "tsunagu-josei:favorites:v1";
-const CUSTOM_STORAGE_KEY = "tsunagu-josei:custom:v1";
 import {
   Search,
   Sprout,
@@ -35,7 +33,14 @@ import {
   createUserGrant,
   updateUserGrant,
   deleteUserGrant,
+  migrateLocalDataToCloud,
 } from "@/lib/user-data";
+import {
+  readLocalData,
+  writeLocalFavorites,
+  writeLocalCustoms,
+  clearLocalData,
+} from "@/lib/local-store";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -133,6 +138,7 @@ function Home() {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [customs, setCustoms] = useState<Grant[]>([]);
   const [syncing, setSyncing] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   const [tab, setTab] = useState("search");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -145,6 +151,8 @@ function Home() {
   const [aiError, setAiError] = useState<string>("");
   const askAgent = useServerFn(askGrantAgent);
   const router = useRouter();
+  // user はトークン更新のたびに新しいオブジェクトになるため、id を依存に使う。
+  const userId = user?.id;
 
   // 未ログイン時はブラウザ保存、ログイン時はクラウド（DB）に保存する。
   const refreshUserData = useCallback(async () => {
@@ -159,39 +167,51 @@ function Home() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (user) {
-      void refreshUserData();
+    if (!userId) {
+      const local = readLocalData();
+      setFavorites(new Set(local.favorites));
+      setCustoms(local.customs);
       return;
     }
-    try {
-      const raw = localStorage.getItem(FAV_STORAGE_KEY);
-      const ids = raw ? (JSON.parse(raw) as string[]) : [];
-      setFavorites(new Set(Array.isArray(ids) ? ids : []));
-      const rawC = localStorage.getItem(CUSTOM_STORAGE_KEY);
-      const list = rawC ? (JSON.parse(rawC) as Grant[]) : [];
-      setCustoms(Array.isArray(list) ? list.map((g) => ({ ...g, custom: true })) : []);
-    } catch {
-      /* ignore */
-    }
-  }, [user, authLoading, refreshUserData]);
+
+    void (async () => {
+      // ログインするまでの間にこの端末へ溜めた分をアカウントへ引き継ぐ。
+      // 成功したときだけローカルを消すので、失敗しても手元のデータは残る。
+      // 移行後は localStorage が空になるため、再実行されても二重登録にならない。
+      const local = readLocalData();
+      if (local.favorites.length > 0 || local.customs.length > 0) {
+        setMigrating(true);
+        try {
+          const moved = await migrateLocalDataToCloud(userId, local);
+          clearLocalData();
+          const parts = [
+            moved.grants > 0 ? `自分の登録${moved.grants}件` : "",
+            moved.favorites > 0 ? `お気に入り${moved.favorites}件` : "",
+          ].filter(Boolean);
+          if (parts.length > 0) {
+            toast.success(`この端末に保存していた${parts.join("・")}をアカウントに移しました。`);
+          }
+        } catch (e) {
+          toast.error(
+            `この端末のデータをアカウントに移せませんでした（データはこの端末に残っています）: ${errorText(e)}`,
+          );
+        } finally {
+          setMigrating(false);
+        }
+      }
+      await refreshUserData();
+    })();
+  }, [userId, authLoading, refreshUserData]);
 
   useEffect(() => {
-    if (user || authLoading) return;
-    try {
-      localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(Array.from(favorites)));
-    } catch {
-      /* ignore */
-    }
-  }, [favorites, user, authLoading]);
+    if (userId || authLoading) return;
+    writeLocalFavorites(Array.from(favorites));
+  }, [favorites, userId, authLoading]);
 
   useEffect(() => {
-    if (user || authLoading) return;
-    try {
-      localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(customs));
-    } catch {
-      /* ignore */
-    }
-  }, [customs, user, authLoading]);
+    if (userId || authLoading) return;
+    writeLocalCustoms(customs);
+  }, [customs, userId, authLoading]);
 
   const toggleFav = async (id: string) => {
     const has = favorites.has(id);
@@ -386,6 +406,13 @@ function Home() {
 
       <main className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
         <Hero />
+
+        {migrating && (
+          <div className="mt-6 flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-xs text-primary">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            この端末に保存していたお気に入り・登録をアカウントに移しています…
+          </div>
+        )}
 
         <Tabs value={tab} onValueChange={setTab} className="mt-10">
           <TabsList className="bg-card/70 backdrop-blur border border-border shadow-sm">
