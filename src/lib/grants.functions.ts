@@ -44,7 +44,7 @@ export const listGrants = createServerFn({ method: "GET" }).handler(async () => 
     // 空一覧を黙って返すと「助成金0件」の画面が正常動作に見えてしまうので、
     // 設定漏れであることをログに残す。
     console.error("[listGrants] SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY が未設定です");
-    return { grants: [] as Grant[], syncedAt: null as string | null };
+    return { grants: [] as Grant[], syncedAt: null as string | null, lastSyncFailed: false };
   }
 
   const supabase = createClient(url, key, {
@@ -71,15 +71,19 @@ export const listGrants = createServerFn({ method: "GET" }).handler(async () => 
     .limit(1000);
   if (error) throw new Error(error.message);
 
-  const { data: sync } = await supabase
+  // 直近の実行履歴。最後に成功した時刻と、最新の実行が失敗しているかを取る。
+  // message は匿名キーから読めない（列単位のGRANTで伏せてある）ので選択しない。
+  const { data: runs } = await supabase
     .from("sync_runs")
-    .select("created_at")
-    .eq("status", "ok")
+    .select("created_at,status")
+    .eq("source", "jgrants")
     .order("created_at", { ascending: false })
-    .limit(1);
+    .limit(10);
 
+  const history = runs ?? [];
   return {
     grants: (data ?? []).map((row) => toGrant(row as GrantRecord)),
-    syncedAt: sync?.[0]?.created_at ?? null,
+    syncedAt: history.find((r) => r.status === "ok")?.created_at ?? null,
+    lastSyncFailed: history[0]?.status === "error",
   };
 });

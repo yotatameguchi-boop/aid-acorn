@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchJGrantsRows } from "@/lib/jgrants.server";
+import { fetchJGrantsRows, JGrantsUnavailableError } from "@/lib/jgrants.server";
 
 // jGrants公開APIの定期取り込み（pg_cronから1日1回呼び出し）。
 // /api/public/* は認証をバイパスするため、書き込みは「外部の公開データを取り込む」
@@ -71,13 +71,19 @@ async function runSync(supabaseAdmin: SupabaseAdmin) {
     return { ok: true, count: rows.length, removed, complete };
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown";
+    // jGrants側の不調は、こちらの不具合と分けて扱う（利用者には再試行を促す）
+    const upstream = error instanceof JGrantsUnavailableError;
     // 失敗の記録自体が失敗しても（DB断など）ハンドラごと落とさない
     try {
-      await supabaseAdmin.from("sync_runs").insert({ source: "jgrants", status: "error", message });
+      await supabaseAdmin.from("sync_runs").insert({
+        source: "jgrants",
+        status: "error",
+        message: upstream ? `upstream: ${message}` : message,
+      });
     } catch (logError) {
       console.error("[sync-jgrants] failed to record error run", logError);
     }
-    return { ok: false, error: message };
+    return { ok: false, error: message, upstream };
   }
 }
 

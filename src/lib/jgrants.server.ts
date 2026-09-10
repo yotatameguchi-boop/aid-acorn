@@ -132,7 +132,9 @@ function toRow(item: JGrantsItem): GrantRow | null {
 
 const FETCH_TIMEOUT_MS = 15_000;
 
-async function fetchKeyword(kw: string): Promise<JGrantsItem[]> {
+const RETRY_DELAY_MS = 1_500;
+
+async function fetchKeywordOnce(kw: string): Promise<JGrantsItem[]> {
   const url = `${JGRANTS_ENDPOINT}?keyword=${encodeURIComponent(kw)}&sort=acceptance_end_datetime&order=ASC&acceptance=1`;
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
@@ -142,6 +144,23 @@ async function fetchKeyword(kw: string): Promise<JGrantsItem[]> {
   if (!res.ok) throw new Error(`jGrants ${res.status} (keyword=${kw})`);
   const json = (await res.json()) as { result?: JGrantsItem[] };
   return json.result ?? [];
+}
+
+// jGrants側の瞬間的な不調やタイムアウトでいちいち失敗扱いにすると、
+// 「更新」を押すたびに赤いエラーが出てしまう。1度だけ間を置いて再試行する。
+async function fetchKeyword(kw: string): Promise<JGrantsItem[]> {
+  try {
+    return await fetchKeywordOnce(kw);
+  } catch (first) {
+    console.warn(`[jgrants] retrying keyword=${kw}`, first);
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    return fetchKeywordOnce(kw);
+  }
+}
+
+/** jGrants側に起因する失敗。こちらの不具合と区別して、利用者には再試行を促す。 */
+export class JGrantsUnavailableError extends Error {
+  readonly upstream = true;
 }
 
 export type JGrantsFetchResult = {
@@ -169,7 +188,7 @@ export async function fetchJGrantsRows(): Promise<JGrantsFetchResult> {
 
   if (results.every((r) => r.status === "rejected")) {
     const reason = results[0]?.status === "rejected" ? results[0].reason : undefined;
-    throw new Error(
+    throw new JGrantsUnavailableError(
       `jGrants APIへの全リクエストが失敗しました: ${reason instanceof Error ? reason.message : reason}`,
     );
   }

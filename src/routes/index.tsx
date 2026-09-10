@@ -128,7 +128,7 @@ const createEmptyDraft = (): CustomGrantInput => ({
 });
 
 function Home() {
-  const { grants: dbGrants, syncedAt } = Route.useLoaderData();
+  const { grants: dbGrants, syncedAt, lastSyncFailed } = Route.useLoaderData();
   const { user, loading: authLoading, signOut } = useAuth();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("すべて");
@@ -242,6 +242,7 @@ function Home() {
         removed?: number;
         retryAfterSec?: number;
         error?: string;
+        upstream?: boolean;
       } | null;
 
       if (res.status === 429) {
@@ -250,7 +251,14 @@ function Home() {
         return;
       }
       if (!res.ok || !body?.ok) {
-        toast.error(`jGrantsの取り込みに失敗しました: ${body?.error ?? res.status}`);
+        // jGrants側の一時的な不調は、こちらの不具合と区別して再試行を促す。
+        if (body?.upstream) {
+          toast.warning(
+            "jGrants（デジタル庁）側が応答しませんでした。時間をおいてもう一度お試しください。",
+          );
+        } else {
+          toast.error(`jGrantsの取り込みに失敗しました: ${body?.error ?? res.status}`);
+        }
         return;
       }
       const removed = body.removed ?? 0;
@@ -478,7 +486,18 @@ function Home() {
                     </span>
                   </h2>
                   <div className="flex items-center gap-3">
-                    <p className="text-xs text-muted-foreground">
+                    <p
+                      className={cn(
+                        "text-xs",
+                        lastSyncFailed ? "text-destructive" : "text-muted-foreground",
+                      )}
+                      title={
+                        lastSyncFailed
+                          ? "直近の自動取り込みが失敗しました。「更新」で再実行できます。"
+                          : undefined
+                      }
+                    >
+                      {lastSyncFailed && "⚠ 取り込み失敗 ・ "}
                       {syncedAt
                         ? `jGrants最終同期: ${formatDate(syncedAt.slice(0, 10))}`
                         : "締切が近い順"}
