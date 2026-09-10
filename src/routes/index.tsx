@@ -1039,7 +1039,11 @@ function GrantCard({
             <p className="mt-0.5 font-semibold text-foreground">
               {formatDate(grant.applicationEnd)}
             </p>
-            {!closed && <p className="text-[10px] text-muted-foreground">あと {days} 日</p>}
+            {!closed && (
+              <p className="text-[10px] text-muted-foreground" suppressHydrationWarning>
+                あと {days} 日
+              </p>
+            )}
           </div>
         </div>
 
