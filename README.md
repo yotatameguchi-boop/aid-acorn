@@ -73,3 +73,37 @@ SELECT * FROM cron.job_run_details ORDER BY start_time DESC LIMIT 5;
 SELECT created_at, status, inserted_count, message
   FROM public.sync_runs WHERE source = 'jgrants' ORDER BY created_at DESC LIMIT 5;
 ```
+
+## Docker で動かす
+
+Lovable に Publish する前に、本番と同じ形（SSRサーバー）で手元確認するための構成。
+既定のビルドは Cloudflare Workers 向けだが、`NITRO_PRESET=node-server` で
+Node サーバー向けに切り替えている。`vite.config.ts` は変更していないので、
+Lovable 側のデプロイには影響しない。
+
+```sh
+cp .env.example .env   # 値を埋める（初回のみ）
+docker compose up --build
+```
+
+http://localhost:3000 で本番相当の動作を確認できる。
+
+開発サーバー（ホットリロードあり）を使う場合は http://localhost:8080 。
+
+```sh
+docker compose --profile dev up
+```
+
+### 注意
+
+`.env` はイメージに焼き込まず、実行時に渡している（`.dockerignore` で除外）。
+
+`.env` には公開値しか入っていないため、以下はコンテナ内では動かない。
+サーバー専用の値を `.env` に足すか、`-e` で渡すこと。
+
+| 機能 | 必要な変数 |
+| --- | --- |
+| jGrants取り込み（`/api/public/hooks/sync-jgrants`） | `SUPABASE_SERVICE_ROLE_KEY` |
+| AI検索 | `LOVABLE_API_KEY` |
+
+助成金の検索・閲覧は追加設定なしで動く。

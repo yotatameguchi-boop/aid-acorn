@@ -1,0 +1,23 @@
+# ビルドコンテキストから外す。特に .env はイメージに焼き込まない
+# （実行時に docker compose の env_file / -e で渡す）。
+.env
+.env.*
+!.env.example
+
+node_modules
+.output
+.nitro
+.wrangler
+.tanstack
+dist
+dist-ssr
+
+.git
+.github
+.claude
+.lovable
+
+*.log
+.DS_Store
+Dockerfile
+.dockerignore
