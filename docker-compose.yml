@@ -1,5 +1,5 @@
 # 使い方
-#   本番相当で起動:  docker compose up --build
+#   本番相当で起動:  docker compose up --build   → http://localhost:3100
 #   開発サーバー:    docker compose --profile dev up
 #
 # 接続情報は .env から渡す（イメージには焼き込まない）。
@@ -10,7 +10,9 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      # 3000 は他プロジェクトの開発サーバーとぶつかりやすいので既定を 3100 にする。
+      # 変えたい場合は APP_PORT=xxxx docker compose up
+      - "${APP_PORT:-3100}:3000"
     env_file:
       - .env
     environment:
