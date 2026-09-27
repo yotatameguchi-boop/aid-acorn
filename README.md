@@ -34,7 +34,7 @@ npm run dev
 | `SUPABASE_URL` / `SUPABASE_PUBLISHABLE_KEY`           | サーバー側からの公開データ読み取り                                 |
 | `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` | ブラウザ側（バンドルに埋め込まれる）                               |
 | `SUPABASE_SERVICE_ROLE_KEY`                           | jGrants取り込み時のRLSバイパス。**ブラウザに出さない**             |
-| `LOVABLE_API_KEY`                                     | AI検索（Lovable AI Gateway）                                       |
+| `ANTHROPIC_API_KEY`                                   | AI検索・申請書下書き（Anthropic API）。**サーバー専用**            |
 | `SYNC_SECRET`                                         | jGrants取り込みAPIの実行間隔制限を免除する共有シークレット（任意） |
 
 ## jGrantsの自動取り込み
@@ -101,9 +101,9 @@ docker compose --profile dev up
 `.env` には公開値しか入っていないため、以下はコンテナ内では動かない。
 サーバー専用の値を `.env` に足すか、`-e` で渡すこと。
 
-| 機能 | 必要な変数 |
-| --- | --- |
+| 機能                                                | 必要な変数                  |
+| --------------------------------------------------- | --------------------------- |
 | jGrants取り込み（`/api/public/hooks/sync-jgrants`） | `SUPABASE_SERVICE_ROLE_KEY` |
-| AI検索 | `LOVABLE_API_KEY` |
+| AI検索・申請書下書き                                | `ANTHROPIC_API_KEY`         |
 
 助成金の検索・閲覧は追加設定なしで動く。
