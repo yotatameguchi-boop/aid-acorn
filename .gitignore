@@ -38,3 +38,6 @@ dist-ssr
 
 # Claude Code のローカル設定
 .claude/
+
+# Supabase CLI の作業ファイル
+supabase/.temp/

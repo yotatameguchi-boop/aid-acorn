@@ -41,6 +41,13 @@ import {
   writeLocalCustoms,
   clearLocalData,
 } from "@/lib/local-store";
+import {
+  fetchMyOrganizations,
+  getActiveOrgId,
+  setActiveOrgId,
+  type Organization,
+} from "@/lib/org-data";
+import { OrgDialog } from "@/components/org-panel";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -139,6 +146,10 @@ function Home() {
   const [customs, setCustoms] = useState<Grant[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
+  // null = 個人。団体を選ぶと「自分の登録」がその団体の共有物に切り替わる。
+  const [activeOrgId, setActiveOrg] = useState<string | null>(null);
+  const [orgDialogOpen, setOrgDialogOpen] = useState(false);
   const [tab, setTab] = useState("search");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -156,14 +167,42 @@ function Home() {
 
   // 未ログイン時はブラウザ保存、ログイン時はクラウド（DB）に保存する。
   const refreshUserData = useCallback(async () => {
+    if (!userId) return;
     try {
-      const [favs, mine] = await Promise.all([fetchFavorites(), fetchUserGrants()]);
+      const [favs, mine] = await Promise.all([
+        fetchFavorites(userId),
+        fetchUserGrants(activeOrgId),
+      ]);
       setFavorites(new Set(favs));
       setCustoms(mine);
     } catch (e) {
       toast.error(`保存済みデータの読み込みに失敗しました: ${errorText(e)}`);
     }
-  }, []);
+  }, [userId, activeOrgId]);
+
+  // 所属団体の一覧と、前回選んでいた団体を復元する。
+  const refreshOrgs = useCallback(async () => {
+    if (!userId) {
+      setOrgs([]);
+      setActiveOrg(null);
+      return;
+    }
+    try {
+      const list = await fetchMyOrganizations();
+      setOrgs(list);
+      const remembered = getActiveOrgId(userId);
+      // 脱退した団体を選んだままにしない
+      setActiveOrg(list.some((o) => o.id === remembered) ? remembered : null);
+    } catch (e) {
+      toast.error(`団体の一覧を読めませんでした: ${errorText(e)}`);
+    }
+  }, [userId]);
+
+  const switchOrg = (orgId: string | null) => {
+    if (!userId) return;
+    setActiveOrg(orgId);
+    setActiveOrgId(userId, orgId);
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -199,9 +238,15 @@ function Home() {
           setMigrating(false);
         }
       }
-      await refreshUserData();
+      await refreshOrgs();
     })();
-  }, [userId, authLoading, refreshUserData]);
+  }, [userId, authLoading, refreshOrgs]);
+
+  // 団体を切り替えたら、その文脈のデータを読み直す
+  useEffect(() => {
+    if (authLoading || !userId) return;
+    void refreshUserData();
+  }, [authLoading, userId, refreshUserData]);
 
   useEffect(() => {
     if (userId || authLoading) return;
@@ -224,7 +269,7 @@ function Home() {
     if (!user) return;
     try {
       if (has) await removeFavorite(id);
-      else await addFavorite(user.id, id);
+      else await addFavorite(user.id, id, activeOrgId);
     } catch (e) {
       toast.error(`お気に入りの更新に失敗しました: ${errorText(e)}`);
       void refreshUserData();
@@ -328,8 +373,8 @@ function Home() {
     if (!draft.title.trim() || !draft.organization.trim()) return;
     if (user) {
       try {
-        if (editingId) await updateUserGrant(editingId, user.id, draft);
-        else await createUserGrant(user.id, draft);
+        if (editingId) await updateUserGrant(editingId, user.id, draft, activeOrgId);
+        else await createUserGrant(user.id, draft, activeOrgId);
         await refreshUserData();
       } catch (e) {
         // 保存できていないのにダイアログを閉じると、入力内容が黙って消える
@@ -405,6 +450,10 @@ function Home() {
       <Header
         favCount={favorites.size}
         email={user?.email}
+        orgs={orgs}
+        activeOrgId={activeOrgId}
+        onSwitchOrg={switchOrg}
+        onManageOrg={() => setOrgDialogOpen(true)}
         onSignOut={() => {
           void signOut();
           setFavorites(new Set());
@@ -440,7 +489,8 @@ function Home() {
               value="mine"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              <Sprout className="mr-2 h-4 w-4" /> 自分の登録 ({customs.length})
+              <Sprout className="mr-2 h-4 w-4" /> {activeOrgId ? "団体の登録" : "自分の登録"} (
+              {customs.length})
             </TabsTrigger>
           </TabsList>
 
@@ -581,9 +631,14 @@ function Home() {
           <TabsContent value="mine" className="mt-6">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold">自分の助成金・補助金</h2>
+                <h2 className="text-xl font-semibold">
+                  {activeOrgId ? "団体で共有している助成金・補助金" : "自分の助成金・補助金"}
+                </h2>
                 <p className="text-xs text-muted-foreground">
-                  団体が独自に把握している情報を登録して、検索・お気に入りと一緒に管理できます。
+                  {activeOrgId
+                    ? "ここでの登録・編集はメンバー全員に反映されます。"
+                    : "独自に把握している情報を登録して、検索・お気に入りと一緒に管理できます。" +
+                      (orgs.length > 0 ? "" : " 団体を作ると、メンバーと共有できます。")}
                 </p>
               </div>
               <Button onClick={openNew} className="gap-1">
@@ -615,6 +670,20 @@ function Home() {
         </Tabs>
       </main>
 
+      {userId && (
+        <OrgDialog
+          open={orgDialogOpen}
+          onOpenChange={setOrgDialogOpen}
+          org={orgs.find((o) => o.id === activeOrgId) ?? null}
+          userId={userId}
+          onChanged={() => void refreshOrgs()}
+          onLeft={() => {
+            switchOrg(null);
+            void refreshOrgs();
+          }}
+        />
+      )}
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
@@ -645,12 +714,21 @@ function Home() {
 function Header({
   favCount,
   email,
+  orgs,
+  activeOrgId,
+  onSwitchOrg,
+  onManageOrg,
   onSignOut,
 }: {
   favCount: number;
   email?: string | null;
+  orgs: Organization[];
+  activeOrgId: string | null;
+  onSwitchOrg: (id: string | null) => void;
+  onManageOrg: () => void;
   onSignOut: () => void;
 }) {
+  const activeOrg = orgs.find((o) => o.id === activeOrgId) ?? null;
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
@@ -664,6 +742,45 @@ function Header({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {email && (
+            <div className="flex items-center gap-1">
+              <Select
+                value={activeOrgId ?? "personal"}
+                onValueChange={(v) => {
+                  if (v === "__new__") {
+                    onSwitchOrg(null);
+                    onManageOrg();
+                    return;
+                  }
+                  onSwitchOrg(v === "personal" ? null : v);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[140px] bg-background text-xs sm:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="personal">個人</SelectItem>
+                  {orgs.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__new__">＋ 団体を作る</SelectItem>
+                </SelectContent>
+              </Select>
+              {activeOrg && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2"
+                  onClick={onManageOrg}
+                  aria-label="団体の設定"
+                >
+                  <Building2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
           <Badge variant="secondary" className="gap-1 bg-accent text-accent-foreground border-0">
             <Heart className="h-3 w-3" /> {favCount}
           </Badge>

@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db-extended";
 import { toGrant, type GrantRecord } from "@/lib/grants.functions";
 import type { Grant } from "@/lib/grants-data";
 import type { LocalData } from "@/lib/local-store";
@@ -8,9 +8,11 @@ const USER_GRANT_COLUMNS =
 
 export type UserGrantInput = Omit<Grant, "id" | "custom">;
 
-function toRow(input: UserGrantInput, userId: string) {
+function toRow(input: UserGrantInput, userId: string, orgId: string | null) {
   return {
     user_id: userId,
+    // NULL なら個人のもの。団体を指定するとメンバー全員で編集できる共有物になる。
+    org_id: orgId,
     title: input.title,
     organization: input.organization,
     category: input.category,
@@ -25,45 +27,61 @@ function toRow(input: UserGrantInput, userId: string) {
   };
 }
 
-export async function fetchFavorites(): Promise<string[]> {
-  const { data, error } = await supabase.from("favorites").select("grant_id");
+// お気に入りは団体を選んでいても「自分のもの」だけを扱う。
+// 同じ団体のメンバーの分も読めるが（RLS）、誰かの♡を勝手に外せると困るため。
+export async function fetchFavorites(userId: string): Promise<string[]> {
+  const { data, error } = await db.from("favorites").select("grant_id").eq("user_id", userId);
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => r.grant_id as string);
 }
 
-export async function addFavorite(userId: string, grantId: string) {
-  const { error } = await supabase.from("favorites").insert({ user_id: userId, grant_id: grantId });
+export async function addFavorite(userId: string, grantId: string, orgId: string | null = null) {
+  const { error } = await db
+    .from("favorites")
+    .insert({ user_id: userId, grant_id: grantId, org_id: orgId });
   if (error) throw new Error(error.message);
 }
 
 export async function removeFavorite(grantId: string) {
-  const { error } = await supabase.from("favorites").delete().eq("grant_id", grantId);
+  const { error } = await db.from("favorites").delete().eq("grant_id", grantId);
   if (error) throw new Error(error.message);
 }
 
-export async function fetchUserGrants(): Promise<Grant[]> {
-  const { data, error } = await supabase
-    .from("user_grants")
-    .select(USER_GRANT_COLUMNS)
-    .order("application_end", { ascending: true });
+/** 団体を選んでいればその共有登録、選んでいなければ個人の登録だけを返す。 */
+export async function fetchUserGrants(orgId: string | null): Promise<Grant[]> {
+  const base = db.from("user_grants").select(USER_GRANT_COLUMNS);
+  const scoped = orgId ? base.eq("org_id", orgId) : base.is("org_id", null);
+  const { data, error } = await scoped.order("application_end", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) =>
     toGrant({ ...(row as unknown as GrantRecord), source: "user", custom: true }),
   );
 }
 
-export async function createUserGrant(userId: string, input: UserGrantInput) {
-  const { error } = await supabase.from("user_grants").insert(toRow(input, userId));
+export async function createUserGrant(
+  userId: string,
+  input: UserGrantInput,
+  orgId: string | null = null,
+) {
+  const { error } = await db.from("user_grants").insert(toRow(input, userId, orgId));
   if (error) throw new Error(error.message);
 }
 
-export async function updateUserGrant(id: string, userId: string, input: UserGrantInput) {
-  const { error } = await supabase.from("user_grants").update(toRow(input, userId)).eq("id", id);
+export async function updateUserGrant(
+  id: string,
+  userId: string,
+  input: UserGrantInput,
+  orgId: string | null = null,
+) {
+  const { error } = await db
+    .from("user_grants")
+    .update(toRow(input, userId, orgId))
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
 export async function deleteUserGrant(id: string) {
-  const { error } = await supabase.from("user_grants").delete().eq("id", id);
+  const { error } = await db.from("user_grants").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
 
@@ -89,8 +107,10 @@ export async function migrateLocalDataToCloud(
   );
   const idMap = new Map<string, string>();
   if (customs.length > 0) {
-    const rows = customs.map(({ id: _id, custom: _custom, ...input }) => toRow(input, userId));
-    const { data, error } = await supabase.from("user_grants").insert(rows).select("id");
+    const rows = customs.map(({ id: _id, custom: _custom, ...input }) =>
+      toRow(input, userId, null),
+    );
+    const { data, error } = await db.from("user_grants").insert(rows).select("id");
     if (error) throw new Error(error.message);
 
     const inserted = data ?? [];
@@ -112,7 +132,7 @@ export async function migrateLocalDataToCloud(
   );
   if (grantIds.length > 0) {
     // 同じ助成金を既にクラウド側でお気に入りにしている場合があるので重複は無視する。
-    const { error } = await supabase.from("favorites").upsert(
+    const { error } = await db.from("favorites").upsert(
       grantIds.map((grantId) => ({ user_id: userId, grant_id: grantId })),
       { onConflict: "user_id,grant_id", ignoreDuplicates: true },
     );
