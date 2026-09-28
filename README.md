@@ -108,42 +108,72 @@ docker compose --profile dev up
 
 助成金の検索・閲覧は追加設定なしで動く。
 
-## Vercel へデプロイする
+## 本番環境（Vercel）
 
-既定のビルドは Cloudflare Workers 向けなので、`NITRO_PRESET=vercel` で切り替える。
-`vercel.json` にビルドコマンドを書いてあるので、リポジトリを繋げば自動で効く。
+本番は Vercel で動かす。Lovable の Publish は使わない。
 
-### 初回だけ必要なこと
+既定のビルドは Cloudflare Workers 向けなので、`vercel.json` のビルドコマンドで
+`NITRO_PRESET=vercel` を指定して切り替えている。
 
-1. Vercel にログインしてプロジェクトを作る（GitHub 連携が楽）
+### 切り替え手順（初回のみ）
 
-   ```sh
-   npm i -g vercel
-   vercel login
-   vercel link
-   ```
+**1. Vercel プロジェクトを作る**
 
-2. 環境変数を Vercel 側に登録する。`.env.example` を参照。
-   **`SUPABASE_SERVICE_ROLE_KEY` と `ANTHROPIC_API_KEY` はサーバー専用**なので、
-   Production / Preview のみに入れる（`VITE_` 付きはブラウザに配布される公開値）。
+```sh
+cd ~/Claude/aid-acorn
+npx vercel login
+npx vercel link
+```
 
-   ```sh
-   vercel env add SUPABASE_SERVICE_ROLE_KEY production
-   vercel env add ANTHROPIC_API_KEY production
-   vercel env add SYNC_SECRET production
-   ```
+**2. 環境変数を登録する**
 
-   `VITE_SUPABASE_*` は `vite.config.ts` に既定値があるため未設定でも動くが、
-   別のSupabaseプロジェクトへ向ける場合はここで上書きする。
+サーバー専用の値だけを入れる。`VITE_SUPABASE_*` は `vite.config.ts` に既定値が
+あるので不要（別プロジェクトへ向けるときだけ上書き）。
 
-3. デプロイ
+```sh
+npx vercel env add SUPABASE_URL production
+npx vercel env add SUPABASE_PUBLISHABLE_KEY production
+npx vercel env add SUPABASE_SERVICE_ROLE_KEY production
+npx vercel env add ANTHROPIC_API_KEY production
+npx vercel env add SYNC_SECRET production
+```
 
-   ```sh
-   vercel --prod
-   ```
+**3. Supabase のマイグレーションを当てる**
 
-### Lovable との関係
+団体アカウントのテーブルが無いまま公開すると、ログインした利用者に毎回エラーが出る。
+SQL Editor で `supabase/migrations/20260927000000_organizations.sql` を実行する。
 
-Lovable の Publish とは別系統になる。両方に出すと、jGrants の取り込み先や
-cron の呼び出し先（`app_private.sync_config.endpoint_url`）をどちらに向けるかで
-二重取り込みが起きうるので、**公開先はどちらか一方に寄せること**。
+**4. デプロイする**
+
+```sh
+npx vercel --prod
+```
+
+**5. Supabase の認証設定を Vercel のドメインに向ける**
+
+Supabase ダッシュボードの Authentication → URL Configuration で:
+
+- **Site URL** を Vercel の本番URL（例: `https://aid-acorn.vercel.app`）にする
+- **Redirect URLs** に `https://aid-acorn.vercel.app/**` を追加する
+
+これをしないと、メール確認のリンクや Google ログイン後の戻り先が Lovable の
+ドメインのままになる。Google ログインを使う場合は Authentication → Providers で
+Google も有効にする。
+
+**6. jGrants 取り込みの呼び出し先を Vercel に向ける**
+
+cron は `app_private.sync_config.endpoint_url` を叩く。既定値は Lovable のURLなので、
+SQL Editor で書き換える:
+
+```sql
+UPDATE app_private.sync_config
+   SET endpoint_url = 'https://aid-acorn.vercel.app/api/public/hooks/sync-jgrants',
+       sync_secret = '<Vercel に入れた SYNC_SECRET と同じ値>',
+       updated_at = now()
+ WHERE id;
+```
+
+**7. Lovable 側を止める**
+
+両方が動いていると、利用者がどちらに来たかで挙動がずれる。
+Lovable エディタで公開を取り下げるか、少なくともURLを案内しないようにする。
