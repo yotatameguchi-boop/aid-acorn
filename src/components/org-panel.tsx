@@ -46,7 +46,7 @@ export function OrgDialog({
   onOpenChange: (v: boolean) => void;
   org: Organization | null;
   userId: string;
-  onChanged: () => void;
+  onChanged: (createdOrgId?: string) => void;
   onLeft: () => void;
 }) {
   return (
@@ -70,9 +70,9 @@ export function OrgDialog({
           />
         ) : (
           <CreateOrgForm
-            onCreated={() => {
+            onCreated={(orgId) => {
               onOpenChange(false);
-              onChanged();
+              onChanged(orgId);
             }}
           />
         )}
@@ -81,7 +81,7 @@ export function OrgDialog({
   );
 }
 
-function CreateOrgForm({ onCreated }: { onCreated: () => void }) {
+function CreateOrgForm({ onCreated }: { onCreated: (orgId: string) => void }) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -89,9 +89,9 @@ function CreateOrgForm({ onCreated }: { onCreated: () => void }) {
     if (!name.trim()) return;
     setSaving(true);
     try {
-      await createOrganization(name.trim());
+      const orgId = await createOrganization(name.trim());
       toast.success(`「${name.trim()}」を作りました。メンバーを招待できます。`);
-      onCreated();
+      onCreated(orgId);
     } catch (e) {
       toast.error(`団体を作れませんでした: ${errorText(e)}`);
     } finally {
@@ -132,7 +132,7 @@ function OrgSettings({
 }: {
   org: Organization;
   userId: string;
-  onChanged: () => void;
+  onChanged: (createdOrgId?: string) => void;
   onLeft: () => void;
 }) {
   const [members, setMembers] = useState<OrganizationMember[]>([]);

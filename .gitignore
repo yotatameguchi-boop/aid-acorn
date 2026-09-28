@@ -41,3 +41,4 @@ dist-ssr
 
 # Supabase CLI の作業ファイル
 supabase/.temp/
+supabase/.branches/

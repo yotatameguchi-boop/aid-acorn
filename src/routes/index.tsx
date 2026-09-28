@@ -676,7 +676,11 @@ function Home() {
           onOpenChange={setOrgDialogOpen}
           org={orgs.find((o) => o.id === activeOrgId) ?? null}
           userId={userId}
-          onChanged={() => void refreshOrgs()}
+          onChanged={(createdOrgId) => {
+            // 作った直後はその団体を開いた状態にする（いちいち選び直させない）
+            if (createdOrgId) switchOrg(createdOrgId);
+            void refreshOrgs();
+          }}
           onLeft={() => {
             switchOrg(null);
             void refreshOrgs();
