@@ -45,5 +45,3 @@ supabase/.branches/
 
 # Vercel のビルド成果物
 .vercel/
-.vercel
-.env*
