@@ -14,16 +14,16 @@ import { loadEnv } from "vite";
 //
 // ここに置いているのは公開値のみ。publishable key はもともと全ブラウザへ
 // 配布される前提のキーで、保護はRLSが担う（Supabase公式の推奨どおり）。
-// 秘密情報である SUPABASE_SERVICE_ROLE_KEY と LOVABLE_API_KEY は
+// 秘密情報である SUPABASE_SERVICE_ROLE_KEY と ANTHROPIC_API_KEY は
 // サーバー専用で、ここにも .env にも含めない。
 //
 // あくまで最後の砦なので、環境変数や .env で指定があればそちらを使う。
 // 別プロジェクト（ローカルのSupabaseなど）へ向ける場合は
 // .env / .env.local に VITE_SUPABASE_* を書けばよい。
 const PUBLIC_SUPABASE_DEFAULTS = {
-  VITE_SUPABASE_URL: "https://kyrwqkuwwzljjjoybftj.supabase.co",
-  VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_wJnphCekVVEPs34qRh7V7g_vltUumoM",
-  VITE_SUPABASE_PROJECT_ID: "kyrwqkuwwzljjjoybftj",
+  VITE_SUPABASE_URL: "https://ocnsmzdwoehhjejxpuqx.supabase.co",
+  VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_iZ1PXNlOkTxjwqBfXKEvTg_s5BewQ_Z",
+  VITE_SUPABASE_PROJECT_ID: "ocnsmzdwoehhjejxpuqx",
 };
 
 // Vite の loadEnv は .env ファイル群を読んだうえで、process.env の VITE_ 付きの値で
