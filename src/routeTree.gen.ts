@@ -9,14 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as TsunaguriPreviewRouteImport } from './routes/tsunaguri-preview'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApiPublicHooksSyncJgrantsRouteImport } from './routes/api/public/hooks/sync-jgrants'
 
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -24,9 +26,19 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TsunaguriPreviewRoute = TsunaguriPreviewRouteImport.update({
+  id: '/tsunaguri-preview',
+  path: '/tsunaguri-preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHooksSyncJgrantsRoute =
@@ -40,12 +52,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tsunaguri-preview': typeof TsunaguriPreviewRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/api/public/hooks/sync-jgrants': typeof ApiPublicHooksSyncJgrantsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tsunaguri-preview': typeof TsunaguriPreviewRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/api/public/hooks/sync-jgrants': typeof ApiPublicHooksSyncJgrantsRoute
 }
 export interface FileRoutesById {
@@ -53,18 +69,34 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/tsunaguri-preview': typeof TsunaguriPreviewRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/api/public/hooks/sync-jgrants': typeof ApiPublicHooksSyncJgrantsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/sitemap.xml' | '/api/public/hooks/sync-jgrants'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/sitemap.xml'
+    | '/tsunaguri-preview'
+    | '/invite/$token'
+    | '/api/public/hooks/sync-jgrants'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/sitemap.xml' | '/api/public/hooks/sync-jgrants'
+  to:
+    | '/'
+    | '/auth'
+    | '/sitemap.xml'
+    | '/tsunaguri-preview'
+    | '/invite/$token'
+    | '/api/public/hooks/sync-jgrants'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/sitemap.xml'
+    | '/tsunaguri-preview'
+    | '/invite/$token'
     | '/api/public/hooks/sync-jgrants'
   fileRoutesById: FileRoutesById
 }
@@ -72,16 +104,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TsunaguriPreviewRoute: typeof TsunaguriPreviewRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   ApiPublicHooksSyncJgrantsRoute: typeof ApiPublicHooksSyncJgrantsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -91,11 +125,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tsunaguri-preview': {
+      id: '/tsunaguri-preview'
+      path: '/tsunaguri-preview'
+      fullPath: '/tsunaguri-preview'
+      preLoaderRoute: typeof TsunaguriPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/sync-jgrants': {
@@ -112,6 +160,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TsunaguriPreviewRoute: TsunaguriPreviewRoute,
+  InviteTokenRoute: InviteTokenRoute,
   ApiPublicHooksSyncJgrantsRoute: ApiPublicHooksSyncJgrantsRoute,
 }
 export const routeTree = rootRouteImport

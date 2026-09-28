@@ -107,3 +107,43 @@ docker compose --profile dev up
 | AI検索・申請書下書き                                | `ANTHROPIC_API_KEY`         |
 
 助成金の検索・閲覧は追加設定なしで動く。
+
+## Vercel へデプロイする
+
+既定のビルドは Cloudflare Workers 向けなので、`NITRO_PRESET=vercel` で切り替える。
+`vercel.json` にビルドコマンドを書いてあるので、リポジトリを繋げば自動で効く。
+
+### 初回だけ必要なこと
+
+1. Vercel にログインしてプロジェクトを作る（GitHub 連携が楽）
+
+   ```sh
+   npm i -g vercel
+   vercel login
+   vercel link
+   ```
+
+2. 環境変数を Vercel 側に登録する。`.env.example` を参照。
+   **`SUPABASE_SERVICE_ROLE_KEY` と `ANTHROPIC_API_KEY` はサーバー専用**なので、
+   Production / Preview のみに入れる（`VITE_` 付きはブラウザに配布される公開値）。
+
+   ```sh
+   vercel env add SUPABASE_SERVICE_ROLE_KEY production
+   vercel env add ANTHROPIC_API_KEY production
+   vercel env add SYNC_SECRET production
+   ```
+
+   `VITE_SUPABASE_*` は `vite.config.ts` に既定値があるため未設定でも動くが、
+   別のSupabaseプロジェクトへ向ける場合はここで上書きする。
+
+3. デプロイ
+
+   ```sh
+   vercel --prod
+   ```
+
+### Lovable との関係
+
+Lovable の Publish とは別系統になる。両方に出すと、jGrants の取り込み先や
+cron の呼び出し先（`app_private.sync_config.endpoint_url`）をどちらに向けるかで
+二重取り込みが起きうるので、**公開先はどちらか一方に寄せること**。
