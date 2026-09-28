@@ -13,6 +13,11 @@ export default tseslint.config(
       "dist",
       ".output",
       ".vinxi",
+      // ビルド成果物（ミニファイ済み）。走査すると数万件の誤検知が出る
+      ".vercel",
+      ".nitro",
+      ".wrangler",
+      ".tanstack",
       "src/routeTree.gen.ts",
       "src/integrations/lovable/**",
       "src/integrations/supabase/types.ts",

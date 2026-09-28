@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Sprout, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,17 +73,17 @@ function AuthPage() {
     setMessage("確認メールを送信しました。メール内のリンクから登録を完了してください。");
   };
 
+  // Lovable の OAuth プロキシ(oauth.lovable.app)ではなく Supabase 標準を使う。
+  // Lovable の外でも動き、ホスティング先を変えても影響を受けない。
+  // Supabase 側で Google プロバイダの有効化と、リダイレクトURLの許可が必要。
   const signInWithGoogle = async () => {
     setError("");
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error: err } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/` },
     });
-    if (result.error) {
-      setError("Googleログインに失敗しました。");
-      return;
-    }
-    if (result.redirected) return;
-    navigate({ to: "/" });
+    // 成功時はGoogleへ遷移するので、ここに戻ってくるのは失敗したときだけ。
+    if (err) setError(`Googleログインを開始できませんでした: ${err.message}`);
   };
 
   return (
