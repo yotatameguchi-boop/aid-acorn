@@ -48,6 +48,7 @@ import {
   type Organization,
 } from "@/lib/org-data";
 import { OrgDialog } from "@/components/org-panel";
+import { Tsunaguri, TsunaguriGroup } from "@/components/tsunaguri";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -607,7 +608,7 @@ function Home() {
             </div>
             {favList.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-card/60 p-12 text-center">
-                <Sprout className="mx-auto h-10 w-10 text-primary" />
+                <Tsunaguri mood="happy" className="mx-auto h-20 w-20" />
                 <p className="mt-3 text-sm text-muted-foreground">
                   気になる助成金の♡を押すとここに集まります。
                 </p>
@@ -647,7 +648,11 @@ function Home() {
             </div>
             {customs.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border bg-card/60 p-12 text-center">
-                <Sprout className="mx-auto h-10 w-10 text-primary" />
+                {activeOrgId ? (
+                  <TsunaguriGroup className="mx-auto h-20 w-40" />
+                ) : (
+                  <Tsunaguri mood="seed" className="mx-auto h-20 w-20" />
+                )}
                 <p className="mt-3 text-sm text-muted-foreground">
                   まだ登録がありません。「新規登録」から追加してみましょう。
                 </p>
@@ -737,9 +742,7 @@ function Header({
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-leaf text-primary-foreground shadow-sm">
-            <Sprout className="h-5 w-5" />
-          </div>
+          <Tsunaguri mood="default" className="h-10 w-10 shrink-0" label="つなぐり" />
           <div>
             <h1 className="text-lg font-bold leading-none">つなぐ助成</h1>
             <p className="text-[10px] text-muted-foreground">NPO向け 助成金プラットフォーム</p>
@@ -1254,7 +1257,7 @@ function StatCard({
 function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-border bg-card/60 p-12 text-center">
-      <Sprout className="mx-auto h-10 w-10 text-primary" />
+      <Tsunaguri mood="thinking" className="mx-auto h-20 w-20" />
       <p className="mt-3 font-medium">該当する助成金がありません</p>
       <p className="mt-1 text-xs text-muted-foreground">条件をゆるめて再検索してみてください。</p>
     </div>
@@ -1300,9 +1303,7 @@ function AiSearchPanel({
   return (
     <div className="mb-6 rounded-2xl border border-primary/30 bg-gradient-to-br from-accent/40 via-card to-warm/20 p-5 shadow-sm">
       <div className="mb-3 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-          <Bot className="h-4 w-4" />
-        </div>
+        <Tsunaguri mood="searching" className="h-9 w-9 shrink-0" />
         <div>
           <h3 className="text-sm font-semibold">AIで探す（自然文でOK）</h3>
           <p className="text-[11px] text-muted-foreground">
