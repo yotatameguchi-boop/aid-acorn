@@ -22,7 +22,7 @@ type CompactGrant = Pick<
 >;
 
 export const askGrantAgent = createServerFn({ method: "POST" })
-  .inputValidator((input: { question: string; grants: CompactGrant[] }) => {
+  .validator((input: { question: string; grants: CompactGrant[] }) => {
     if (!input || typeof input.question !== "string" || !Array.isArray(input.grants)) {
       throw new Error("invalid input");
     }
