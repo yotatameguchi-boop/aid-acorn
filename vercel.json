@@ -3,6 +3,6 @@
   "buildCommand": "NITRO_PRESET=vercel npm run build",
   "installCommand": "npm install",
   "regions": [
-    "icn1"
+    "hnd1"
   ]
 }
