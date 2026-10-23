@@ -136,7 +136,7 @@ const createEmptyDraft = (): CustomGrantInput => ({
 });
 
 function Home() {
-  const { grants: dbGrants, syncedAt, lastSyncFailed } = Route.useLoaderData();
+  const { grants: dbGrants, syncedAt, lastSyncFailed, aiEnabled } = Route.useLoaderData();
   const { user, loading: authLoading, signOut } = useAuth();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("すべて");
@@ -473,7 +473,7 @@ function Home() {
         )}
 
         <Tabs value={tab} onValueChange={setTab} className="mt-10">
-          <TabsList className="bg-card/70 backdrop-blur border border-border shadow-sm">
+          <TabsList className="max-w-full justify-start overflow-x-auto bg-card/70 backdrop-blur border border-border shadow-sm">
             <TabsTrigger
               value="search"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -496,17 +496,19 @@ function Home() {
           </TabsList>
 
           <TabsContent value="search" className="mt-6">
-            <AiSearchPanel
-              question={aiQuestion}
-              setQuestion={setAiQuestion}
-              loading={aiLoading}
-              onRun={runAgent}
-              answer={aiAnswer}
-              filters={aiFilters}
-              matchedIds={aiMatched}
-              error={aiError}
-              matches={allGrants.filter((g) => aiMatched.includes(g.id))}
-            />
+            {aiEnabled && (
+              <AiSearchPanel
+                question={aiQuestion}
+                setQuestion={setAiQuestion}
+                loading={aiLoading}
+                onRun={runAgent}
+                answer={aiAnswer}
+                filters={aiFilters}
+                matchedIds={aiMatched}
+                error={aiError}
+                matches={allGrants.filter((g) => aiMatched.includes(g.id))}
+              />
+            )}
             <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
               <FilterPanel
                 query={query}
@@ -815,7 +817,7 @@ function Header({
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-accent/60 via-background to-warm/25 p-8 shadow-sm sm:p-12">
+    <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-accent/60 via-background to-warm/25 p-6 shadow-sm sm:p-12">
       <div
         className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-warm/30 blur-3xl"
         aria-hidden
@@ -828,7 +830,7 @@ function Hero() {
         <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
           <Sparkles className="h-3 w-3" /> 全国のNPO向け助成情報を一箇所で
         </div>
-        <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+        <h2 className="mt-4 text-2xl font-bold tracking-tight sm:text-4xl">
           あなたの活動を、
           <br />
           <span className="text-primary">ちょうどよい助成金</span>と結ぶ。
@@ -866,10 +868,35 @@ function FilterPanel({
   setMonth: (v: string) => void;
   onReset: () => void;
 }) {
+  // スマホでは絞り込み欄が一覧より上に縦に積まれ、助成金のカードが
+  // 画面2枚分ほど下に押し出されていた。開くまでは見出しだけにして、
+  // 一覧がすぐ目に入るようにする（PC幅では常に開いた状態）。
+  const [open, setOpen] = useState(false);
+  const activeCount = [
+    query.trim() !== "",
+    category !== "すべて",
+    region !== "すべて",
+    month !== "すべて",
+    amountRange[0] > 0 || amountRange[1] < MAX_AMOUNT,
+  ].filter(Boolean).length;
+
   return (
     <aside className="h-fit rounded-2xl border border-border bg-card/80 p-5 shadow-sm backdrop-blur lg:sticky lg:top-24">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold">絞り込み</h3>
+      <div className={cn("flex items-center justify-between", open && "mb-4", "lg:mb-4")}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex items-center gap-2 font-semibold lg:pointer-events-none"
+        >
+          絞り込み
+          {activeCount > 0 && (
+            <Badge className="border-0 bg-primary/15 text-primary">{activeCount}件の条件</Badge>
+          )}
+          <span className="text-xs font-normal text-muted-foreground lg:hidden">
+            {open ? "閉じる ▲" : "開く ▼"}
+          </span>
+        </button>
         <Button
           variant="ghost"
           size="sm"
@@ -880,7 +907,7 @@ function FilterPanel({
         </Button>
       </div>
 
-      <div className="space-y-5">
+      <div className={cn("space-y-5", open ? "block" : "hidden", "lg:block")}>
         <div>
           <Label className="text-xs">キーワード</Label>
           <div className="relative mt-1.5">
