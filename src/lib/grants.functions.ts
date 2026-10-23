@@ -44,7 +44,12 @@ export const listGrants = createServerFn({ method: "GET" }).handler(async () => 
     // 空一覧を黙って返すと「助成金0件」の画面が正常動作に見えてしまうので、
     // 設定漏れであることをログに残す。
     console.error("[listGrants] SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY が未設定です");
-    return { grants: [] as Grant[], syncedAt: null as string | null, lastSyncFailed: false };
+    return {
+      grants: [] as Grant[],
+      syncedAt: null as string | null,
+      lastSyncFailed: false,
+      aiEnabled: false,
+    };
   }
 
   const supabase = createClient(url, key, {
@@ -85,5 +90,9 @@ export const listGrants = createServerFn({ method: "GET" }).handler(async () => 
     grants: (data ?? []).map((row) => toGrant(row as GrantRecord)),
     syncedAt: history.find((r) => r.status === "ok")?.created_at ?? null,
     lastSyncFailed: history[0]?.status === "error",
+    // AIの選定が決まって鍵が登録されるまでは、AI検索欄を出さない。
+    // 出しておくと押すたびにエラーになり、「動かない」ように見える。
+    // 鍵の有無だけを返し、値そのものはブラウザに渡さない。
+    aiEnabled: Boolean(process.env["ANTHROPIC_API_KEY"]),
   };
 });
