@@ -7,8 +7,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    // Lovable が自動生成し「編集するな」と明記しているファイル。
-    // 直しても再生成で戻るため、lintの対象から外す。
+    // 自動生成に由来するファイルは lint の対象から外す。
     ignores: [
       "dist",
       ".output",
@@ -19,13 +18,11 @@ export default tseslint.config(
       ".wrangler",
       ".tanstack",
       "src/routeTree.gen.ts",
-      "src/integrations/lovable/**",
       "src/integrations/supabase/types.ts",
       "src/integrations/supabase/client.ts",
       "src/integrations/supabase/client.server.ts",
       "src/integrations/supabase/auth-middleware.ts",
       "src/integrations/supabase/auth-attacher.ts",
-      "src/integrations/supabase/previewAuthStorage.ts",
     ],
   },
   {

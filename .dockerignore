@@ -15,7 +15,6 @@ dist-ssr
 .git
 .github
 .claude
-.lovable
 
 *.log
 .DS_Store

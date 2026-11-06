@@ -7,16 +7,12 @@ package-lock.json
 bun.lock
 routeTree.gen.ts
 
-# Lovable が自動生成し「編集するな」と明記しているファイル。
-# 整形して差分を作ると再生成のたびに衝突するので対象外にする。
+# 自動生成に由来するファイル。整形だけの差分を作らないよう対象外にする。
 src/integrations/supabase/types.ts
 src/integrations/supabase/client.ts
 src/integrations/supabase/client.server.ts
 src/integrations/supabase/auth-middleware.ts
 src/integrations/supabase/auth-attacher.ts
-src/integrations/supabase/previewAuthStorage.ts
-src/integrations/lovable/
-AGENTS.md
 src/routes/README.md
 .vercel
 .nitro

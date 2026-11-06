@@ -1,5 +1,5 @@
 // 団体アカウントの読み書き。テーブルの型は db-extended.ts に置いている
-// （types.ts はLovableの自動生成で、まだ新テーブルを知らないため）。
+// （types.ts は自動生成で、まだ新テーブルを知らないため）。
 import {
   db,
   type OrgRole,
