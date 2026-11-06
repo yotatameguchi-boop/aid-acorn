@@ -7,6 +7,17 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
+// Lovable 版は更新を止めていて、ブラウザ側が接続情報なしで落ちる古いビルドが残っている。
+// ブックマークなどで旧URLから来た人が画面を見られるよう、本番へ送る。
+const LEGACY_HOST = "aid-acorn.lovable.app";
+const PRODUCTION_ORIGIN = "https://aid-acorn.vercel.app";
+
+function redirectFromLegacyHost(request: Request): Response | null {
+  const url = new URL(request.url);
+  if (url.hostname !== LEGACY_HOST) return null;
+  return Response.redirect(`${PRODUCTION_ORIGIN}${url.pathname}${url.search}`, 302);
+}
+
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
 async function getServerEntry(): Promise<ServerEntry> {
@@ -46,6 +57,9 @@ function isH3SwallowedErrorBody(body: string): boolean {
 
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const redirect = redirectFromLegacyHost(request);
+    if (redirect) return redirect;
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
