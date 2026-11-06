@@ -1,5 +1,5 @@
-// integrations/supabase/types.ts は Lovable が自動生成するファイルで、
-// 「編集するな」と明記されている。団体アカウントで足したテーブルと、
+// integrations/supabase/types.ts は自動生成されたファイルで、
+// 団体アカウントで足したテーブルと、
 // favorites / user_grants に足した org_id 列はまだ反映されていない。
 //
 // 生成が追いつくまでの間、不足分の型をここで宣言してクライアントを被せ直す。

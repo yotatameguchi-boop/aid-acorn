@@ -73,8 +73,7 @@ function AuthPage() {
     setMessage("確認メールを送信しました。メール内のリンクから登録を完了してください。");
   };
 
-  // Lovable の OAuth プロキシ(oauth.lovable.app)ではなく Supabase 標準を使う。
-  // Lovable の外でも動き、ホスティング先を変えても影響を受けない。
+  // Supabase 標準の OAuth を使うので、ホスティング先を変えても影響を受けない。
   // Supabase 側で Google プロバイダの有効化と、リダイレクトURLの許可が必要。
   const signInWithGoogle = async () => {
     setError("");

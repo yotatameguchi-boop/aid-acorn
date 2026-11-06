@@ -2,9 +2,7 @@
 
 # つなぐ助成を本番と同じ形（SSRサーバー）でコンテナ実行する。
 #
-# 既定のビルドは Cloudflare Workers 向けだが、NITRO_PRESET で Node サーバー向けに
-# 切り替える。vite.config.ts には手を入れていないので、Lovable 側のデプロイには
-# 一切影響しない。
+# NITRO_PRESET で Node サーバー向けにビルドする。
 
 # ---------- ビルド ----------
 FROM node:24-alpine AS build
@@ -25,7 +23,7 @@ RUN npm config set fetch-retries 5 \
 
 COPY . .
 
-# nitro の出力先を Cloudflare Workers から Node サーバーへ切り替える
+# nitro の出力先を Node サーバーにする
 ENV NITRO_PRESET=node-server
 RUN npm run build
 

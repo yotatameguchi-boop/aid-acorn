@@ -2,13 +2,12 @@
 
 NPO向けの補助金・助成金を、地域・募集時期・金額で検索し、団体で共有・管理できるアプリ。
 
-**公開URL**: https://aid-acorn.vercel.app
+**公開URL**: https://tsunagu-josei.vercel.app
 
 - ホスティング: Vercel（`main` への push で自動デプロイ）
-- DB・認証: Supabase（プロジェクト `ocnsmzdwoehhjejxpuqx`）
+- DB・認証: Supabase（プロジェクト `xjvmqospizljqamranod`、東京）
 
-もとは [Lovable](https://lovable.dev) で作られたが、2026-09-28 にホスティングとDBを
-Vercel と自前の Supabase に移した。Lovable のエディタと公開（aid-acorn.lovable.app）は使っていない。
+以前の公開URL https://aid-acorn.vercel.app も同じ本番を指している。
 
 ## Development
 
@@ -72,10 +71,8 @@ SELECT created_at, status, inserted_count, message
 
 ## Docker で動かす
 
-Lovable に Publish する前に、本番と同じ形（SSRサーバー）で手元確認するための構成。
-既定のビルドは Cloudflare Workers 向けだが、`NITRO_PRESET=node-server` で
-Node サーバー向けに切り替えている。`vite.config.ts` は変更していないので、
-Lovable 側のデプロイには影響しない。
+本番と同じ形（SSRサーバー）で手元確認するための構成。
+`NITRO_PRESET=node-server` で Node サーバー向けにビルドしている。
 
 ```sh
 cp .env.example .env   # 値を埋める（初回のみ）
@@ -106,10 +103,7 @@ docker compose --profile dev up
 
 ## 本番環境（Vercel）
 
-本番は Vercel で動かす。Lovable の Publish は使わない。
-
-既定のビルドは Cloudflare Workers 向けなので、`vercel.json` のビルドコマンドで
-`NITRO_PRESET=vercel` を指定して切り替えている。
+本番は Vercel で動かす。`vercel.json` のビルドコマンドで `NITRO_PRESET=vercel` を指定している。
 
 ### 切り替え手順（初回のみ）
 
@@ -149,27 +143,22 @@ npx vercel --prod
 
 Supabase ダッシュボードの Authentication → URL Configuration で:
 
-- **Site URL** を Vercel の本番URL（例: `https://aid-acorn.vercel.app`）にする
-- **Redirect URLs** に `https://aid-acorn.vercel.app/**` を追加する
+- **Site URL** を Vercel の本番URL（例: `https://tsunagu-josei.vercel.app`）にする
+- **Redirect URLs** に `https://tsunagu-josei.vercel.app/**` を追加する
 
-これをしないと、メール確認のリンクや Google ログイン後の戻り先が Lovable の
-ドメインのままになる。Google ログインを使う場合は Authentication → Providers で
+これをしないと、メール確認のリンクや Google ログイン後の戻り先が正しく動かない。
+Google ログインを使う場合は Authentication → Providers で
 Google も有効にする。
 
 **6. jGrants 取り込みの呼び出し先を Vercel に向ける**
 
-cron は `app_private.sync_config.endpoint_url` を叩く。既定値は Lovable のURLなので、
-SQL Editor で書き換える:
+cron は `app_private.sync_config.endpoint_url` を叩く。SQL Editor で書き換える:
 
 ```sql
 UPDATE app_private.sync_config
-   SET endpoint_url = 'https://aid-acorn.vercel.app/api/public/hooks/sync-jgrants',
+   SET endpoint_url = 'https://tsunagu-josei.vercel.app/api/public/hooks/sync-jgrants',
        sync_secret = '<Vercel に入れた SYNC_SECRET と同じ値>',
        updated_at = now()
  WHERE id;
 ```
 
-**7. Lovable 側を止める**
-
-両方が動いていると、利用者がどちらに来たかで挙動がずれる。
-Lovable エディタで公開を取り下げるか、少なくともURLを案内しないようにする。
