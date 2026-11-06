@@ -105,15 +105,33 @@ export const Route = createFileRoute("/")({
     ],
   }),
   loader: () => listGrants(),
-  errorComponent: ({ error }) => (
-    <div className="flex min-h-screen items-center justify-center p-8 text-center text-sm text-muted-foreground">
-      データの読み込みに失敗しました。{error instanceof Error ? error.message : String(error)}
-    </div>
-  ),
+  // 関数の起動やDBの応答を待つ間、画面が真っ白にならないようCDNから返す。
+  // 一覧はログイン状態によらず同じなので共有してよい。読み込みに失敗したときや
+  // 0件のときに付けると、その画面まで配り続けてしまうので付けない。
+  headers: ({ loaderData }) =>
+    loaderData?.grants.length
+      ? { "Vercel-CDN-Cache-Control": "s-maxage=300, stale-while-revalidate=86400" }
+      : undefined,
+  errorComponent: ({ error }) => {
+    console.error(error);
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
+        <div>
+          <h1 className="text-lg font-semibold">画面を表示できませんでした</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            通信状況によって起きることがあります。もう一度読み込んでください。
+          </p>
+        </div>
+        <Button onClick={() => window.location.reload()}>もう一度読み込む</Button>
+      </div>
+    );
+  },
   component: Home,
 });
 
 const MAX_AMOUNT = 100_000_000;
+// 全件を一度に描くとDOMが1万要素を超え、古いスマホでは固まって何も出ないように見える。
+const PAGE_SIZE = 30;
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -143,6 +161,7 @@ function Home() {
   const [region, setRegion] = useState<string>("すべて");
   const [amountRange, setAmountRange] = useState<[number, number]>([0, MAX_AMOUNT]);
   const [month, setMonth] = useState<string>("すべて");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [customs, setCustoms] = useState<Grant[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -347,6 +366,10 @@ function Home() {
       })
       .sort((a, b) => new Date(a.applicationEnd).getTime() - new Date(b.applicationEnd).getTime());
   }, [allGrants, query, category, region, amountRange, month]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [query, category, region, amountRange, month]);
 
   const favList = useMemo(
     () =>
@@ -570,18 +593,30 @@ function Home() {
                 {filtered.length === 0 ? (
                   <EmptyState />
                 ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {filtered.map((g) => (
-                      <GrantCard
-                        key={g.id}
-                        grant={g}
-                        isFav={favorites.has(g.id)}
-                        onToggle={() => toggleFav(g.id)}
-                        onEdit={g.custom ? () => openEdit(g) : undefined}
-                        onDelete={g.custom ? () => deleteCustom(g.id) : undefined}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {filtered.slice(0, visibleCount).map((g) => (
+                        <GrantCard
+                          key={g.id}
+                          grant={g}
+                          isFav={favorites.has(g.id)}
+                          onToggle={() => toggleFav(g.id)}
+                          onEdit={g.custom ? () => openEdit(g) : undefined}
+                          onDelete={g.custom ? () => deleteCustom(g.id) : undefined}
+                        />
+                      ))}
+                    </div>
+                    {filtered.length > visibleCount && (
+                      <div className="mt-6 text-center">
+                        <Button
+                          variant="outline"
+                          onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+                        >
+                          もっと見る（残り {filtered.length - visibleCount} 件）
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 )}
               </section>
             </div>
